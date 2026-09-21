@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Twitch Plays</title>
+<style>
+  :root {
+    --bg:        #0c0a14;
+    --bg-2:      #141024;
+    --card:      #191430;
+    --card-2:    #1f1939;
+    --line:      rgba(255,255,255,0.08);
+    --line-soft: rgba(255,255,255,0.05);
+    --accent:    #9146ff;
+    --accent-lt: #b98bff;
+    --good:      #00e0b8;
+    --warn:      #ffb347;
+    --bad:       #ff5c6c;
+    --text:      #f4f1ff;
+    --muted:     #9c93b8;
+    --radius:    14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1200px 600px at 20% -10%, #241a47 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif;
+    font-size: 14px;
+    display: flex;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; border: none; background: none; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #2e2650; border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: #3c3268; background-clip: padding-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ---------- venstre side ---------- */
+  aside {
+    width: 232px; flex-shrink: 0;
+    background: rgba(10,8,18,0.6);
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    padding: 22px 16px 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 22px; }
+  .brand svg { flex-shrink: 0; }
+  .brand h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand p { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+  nav { display: flex; flex-direction: column; gap: 2px; }
+  nav button {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 10px;
+    color: var(--muted); font-weight: 500; text-align: left;
+    transition: background 0.15s, color 0.15s;
+  }
+  nav button:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  nav button.on { background: rgba(145,70,255,0.16); color: #fff; }
+  nav button.on .ico { color: var(--accent-lt); }
+  .ico { width: 17px; text-align: center; opacity: 0.9; }
+
+  .spacer { flex: 1; }
+
+  .profile-box { border-top: 1px solid var(--line); padding-top: 14px; }
+  .profile-box label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 6px; padding-left: 2px; }
+  select.profile {
+    width: 100%; background: var(--card); border: 1px solid var(--line);
+    border-radius: 9px; padding: 8px 10px; font-size: 13px;
+    appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239c93b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+  }
+  select.profile:hover { border-color: rgba(145,70,255,0.5); }
+  .saved-tag { font-size: 11px; color: var(--good); margin-top: 8px; height: 14px; opacity: 0; transition: opacity 0.3s; padding-left: 2px; }
+  .saved-tag.show { opacity: 1; }
+
+  /* ---------- hovedområde ---------- */
+  main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 18px 26px; border-bottom: 1px solid var(--line);
+    background: rgba(12,10,20,0.5);
+  }
+  .status { display: flex; align-items: center; gap: 9px; }
+  .pip { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); flex-shrink: 0; }
+  .pip.live { background: var(--good); box-shadow: 0 0 0 0 rgba(0,224,184,0.6); animation: pulse 2s infinite; }
+  .pip.wait { background: var(--warn); }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0,224,184,0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(0,224,184,0); }
+    100% { box-shadow: 0 0 0 0 rgba(0,224,184,0); }
+  }
+  .status .t { font-weight: 600; font-size: 14px; }
+  .status .s { font-size: 12px; color: var(--muted); }
+
+  .counter { margin-left: auto; text-align: right; }
+  .counter b { font-size: 19px; font-variant-numeric: tabular-nums; display: block; line-height: 1.1; }
+  .counter span { font-size: 11px; color: var(--muted); }
+
+  .btn {
+    padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 13.5px;
+    transition: transform 0.08s, filter 0.15s, background 0.15s;
+    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn.go { background: linear-gradient(135deg, var(--accent), #7a2fff); color: #fff;
+            box-shadow: 0 6px 18px rgba(145,70,255,0.35); }
+  .btn.go:hover { filter: brightness(1.12); }
+  .btn.stop { background: rgba(255,92,108,0.14); color: #ff8b96; border: 1px solid rgba(255,92,108,0.35); }
+  .btn.stop:hover { background: rgba(255,92,108,0.22); }
+  .btn.ghost { background: rgba(255,255,255,0.05); color: var(--muted); border: 1px solid var(--line); }
+  .btn.ghost:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+  .btn.ghost.paused { background: rgba(255,179,71,0.16); color: var(--warn); border-color: rgba(255,179,71,0.4); }
+
+  .scroll { flex: 1; overflow-y: auto; overflow-x: auto; padding: 24px 26px 40px; }
+  .page { display: none; }
+  .page.on { display: block; animation: fade 0.2s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .card {
+    background: linear-gradient(180deg, var(--card), var(--card-2));
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px 22px; margin-bottom: 16px;
+  }
+  .card > h2 { font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
+               text-transform: uppercase; color: var(--accent-lt); margin-bottom: 4px; }
+  .card > .hint { font-size: 12.5px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+
+  .field { margin-bottom: 15px; }
+  .field:last-child { margin-bottom: 0; }
+  .field > label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+  .field > .sub { font-size: 11.5px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  .inp {
+    width: 100%; background: rgba(0,0,0,0.28); border: 1px solid var(--line);
+    border-radius: 9px; padding: 10px 12px; font-size: 14px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .inp:focus { outline: none; border-color: var(--accent);
+               box-shadow: 0 0 0 3px rgba(145,70,255,0.18); }
+  .inp::placeholder { color: #5f5680; }
+  .with-prefix { display: flex; align-items: center; background: rgba(0,0,0,0.28);
+                 border: 1px solid var(--line); border-radius: 9px; transition: border-color 0.15s, box-shadow 0.15s; }
+  .with-prefix:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(145,70,255,0.18); }
+  .with-prefix span { padding: 0 2px 0 12px; color: var(--muted); font-size: 14px; }
+  .with-prefix input { flex: 1; background: none; border: none; padding: 10px 12px 10px 2px; font-size: 14px; }
+  .with-prefix input:focus { outline: none; }
+
+  .seg { display: inline-flex; background: rgba(0,0,0,0.3); border: 1px solid var(--line);
+         border-radius: 10px; padding: 3px; gap: 3px; }
+  .seg button { padding: 8px 18px; border-radius: 7px; font-size: 13px; font-weight: 600;
+                color: var(--muted); transition: all 0.15s; }
+  .seg button.on { background: var(--accent); color: #fff; box-shadow: 0 2px 10px rgba(145,70,255,0.4); }
+  .seg button:not(.on):hover { color: var(--text); }
+
+  .slider-row { display: flex; align-items: center; gap: 14px; }
+  input[type=range] {
+    flex: 1; -webkit-appearance: none; height: 5px; border-radius: 3px;
+    background: rgba(255,255,255,0.12); cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 17px; height: 17px; border-radius: 50%;
+    background: var(--accent); border: 3px solid #fff; cursor: grab;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .val { min-width: 62px; text-align: right; font-size: 13px; font-weight: 600;
+         color: var(--accent-lt); font-variant-numeric: tabular-nums; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 20px; }
+
+  /* ---------- kommandoer ---------- */
+  .cmd-head, .cmd-main {
+    display: grid; grid-template-columns: 1.05fr 1.15fr 1.5fr 1.2fr 0.8fr 62px;
+    gap: 10px; align-items: center;
+  }
+  .cmd-head > *, .cmd-main > * { min-width: 0; }
+  /* saa raekkerne aldrig klemmes sammen hvis vinduet goeres smallere */
+  .cmd-head, .cmd-main { min-width: 620px; }
+  .cmd-head { padding: 0 12px 8px; font-size: 11px; color: var(--muted);
+              text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+              line-height: 1.3; }
+  .cmd-row { background: rgba(0,0,0,0.2); border: 1px solid var(--line-soft);
+             border-radius: 11px; padding: 10px 12px; margin-bottom: 7px;
+             transition: border-color 0.15s, background 0.15s; }
+  .cmd-row:hover { border-color: rgba(145,70,255,0.35); background: rgba(145,70,255,0.05); }
+  .cmd-info { margin-top: 8px; display: flex; align-items: center; gap: 8px;
+              border-top: 1px dashed rgba(255,255,255,0.07); padding-top: 8px; }
+  .cmd-info .tag { font-size: 10.5px; color: var(--muted); text-transform: uppercase;
+                   letter-spacing: 0.05em; font-weight: 600; flex-shrink: 0; }
+  .cmd-info input { flex: 1; background: transparent; border: none; padding: 2px 0;
+                    font-size: 13px; color: var(--text); }
+  .cmd-info input:focus { outline: none; }
+  .cmd-info input::placeholder { color: #584f78; font-style: italic; }
+  .hold-on { position: relative; }
+  .hold-on::after {
+    content: "chat kan holde"; position: absolute; left: 0; top: 100%;
+    font-size: 9.5px; color: var(--accent-lt); white-space: nowrap; padding-top: 2px;
+  }
+  .cmd-row .inp, .cmd-row select { padding: 7px 8px; font-size: 12.5px; border-radius: 7px; }
+  .cmd-row select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--line);
+                    border-radius: 7px; padding: 7px 4px 7px 8px; font-size: 12.5px; cursor: pointer; }
+  /* talfelter: fjern op/ned-pilene, de stjaeler plads fra tallet */
+  .cmd-main input[type=number] { appearance: textfield; -moz-appearance: textfield; text-align: center; }
+  .cmd-main input[type=number]::-webkit-outer-spin-button,
+  .cmd-main input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none; margin: 0; }
+  .keycap {
+    width: 100%; background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.18);
+    border-radius: 7px; padding: 7px 9px; font-size: 13px; font-weight: 600;
+    text-align: center; transition: all 0.15s; min-height: 33px;
+  }
+  .keycap:hover { border-color: var(--accent); color: var(--accent-lt); }
+  .keycap.listening { border-color: var(--good); color: var(--good);
+                      background: rgba(0,224,184,0.1); animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: 0.55; } }
+  .xy { display: flex; gap: 5px; }
+  .xy input { width: 50%; text-align: center; }
+  .row-tools { display: flex; gap: 4px; }
+  .icon-btn { width: 29px; height: 29px; border-radius: 7px; color: var(--muted);
+              display: flex; align-items: center; justify-content: center;
+              transition: all 0.15s; font-size: 14px; }
+  .icon-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+  .icon-btn.del:hover { background: rgba(255,92,108,0.18); color: var(--bad); }
+  .icon-btn.test:hover { background: rgba(0,224,184,0.16); color: var(--good); }
+
+  .add-btn { width: 100%; padding: 11px; border-radius: 10px; margin-top: 4px;
+             border: 1px dashed rgba(255,255,255,0.18); color: var(--muted);
+             font-weight: 600; font-size: 13px; transition: all 0.15s; }
+  .add-btn:hover { border-color: var(--accent); color: var(--accent-lt);
+                   background: rgba(145,70,255,0.07); }
+
+  /* ---------- live ---------- */
+  .live-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .feed { list-style: none; max-height: 420px; overflow-y: auto; }
+  .feed li { display: flex; gap: 9px; align-items: baseline; padding: 8px 2px;
+             border-bottom: 1px solid var(--line-soft); font-size: 13.5px;
+             animation: slidein 0.25s ease; }
+  @keyframes slidein { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+  .feed .u { color: var(--accent-lt); font-weight: 600; min-width: 108px;
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .feed .c { background: rgba(145,70,255,0.15); padding: 2px 9px; border-radius: 5px;
+             font-weight: 600; font-size: 12.5px; }
+  .vote { margin-bottom: 11px; }
+  .vote .lbl { display: flex; justify-content: space-between; font-size: 13.5px;
+               font-weight: 600; margin-bottom: 5px; }
+  .vote .lbl b { color: var(--good); font-variant-numeric: tabular-nums; }
+  .vbar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .vbar > span { display: block; height: 100%; border-radius: 4px;
+                 background: linear-gradient(90deg, var(--accent), var(--accent-lt));
+                 transition: width 0.3s ease; }
+  .vote.lead .vbar > span { background: linear-gradient(90deg, var(--good), #7dffe0); }
+  .empty { color: var(--muted); font-size: 13px; padding: 24px 0; text-align: center; }
+
+  .copy-row { display: flex; gap: 8px; align-items: center; }
+  .copy-row code { flex: 1; background: rgba(0,0,0,0.32); border: 1px solid var(--line);
+                   border-radius: 9px; padding: 10px 12px; font-size: 13px;
+                   font-family: "Cascadia Mono", Consolas, monospace; color: var(--accent-lt); }
+
+  .callout { display: flex; gap: 11px; background: rgba(145,70,255,0.09);
+             border: 1px solid rgba(145,70,255,0.25); border-radius: 11px;
+             padding: 13px 15px; font-size: 13px; line-height: 1.55; color: #d9d2f0; }
+  .callout.warn { background: rgba(255,179,71,0.08); border-color: rgba(255,179,71,0.28); color: #f0e2cd; }
+  .callout.err { background: rgba(255,92,108,0.1); border-color: rgba(255,92,108,0.3); color: #ffd4d8; }
+  .callout b { color: #fff; }
+  .callout .em { font-size: 15px; line-height: 1.3; }
+  kbd { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.16);
+        border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px;
+        font-family: inherit; font-size: 12px; font-weight: 600; }
+
+  .steps { counter-reset: s; list-style: none; }
+  .steps li { counter-increment: s; position: relative; padding-left: 34px;
+              margin-bottom: 13px; font-size: 13.5px; line-height: 1.5; color: #ded8f0; }
+  .steps li:last-child { margin-bottom: 0; }
+  .steps li::before {
+    content: counter(s); position: absolute; left: 0; top: -1px;
+    width: 23px; height: 23px; border-radius: 50%;
+    background: rgba(145,70,255,0.2); border: 1px solid rgba(145,70,255,0.45);
+    color: var(--accent-lt); font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(70px);
+    background: #241d42; border: 1px solid rgba(145,70,255,0.45); color: #fff;
+    padding: 11px 20px; border-radius: 11px; font-size: 13.5px; font-weight: 500;
+    box-shadow: 0 10px 34px rgba(0,0,0,0.55); transition: transform 0.28s cubic-bezier(.2,1.2,.3,1);
+    z-index: 50; pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<aside>
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+      <path d="M4 3h16v11l-4 4h-3l-3 3H8v-3H4V3z" fill="#9146ff"/>
+      <path d="M10 7v5M15 7v5" stroke="#0c0a14" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <h1>Twitch Plays</h1>
+      <p>Chatten styrer spillet</p>
+    </div>
+  </div>
+
+  <nav>
+    <button data-page="start" class="on"><span class="ico">&#9654;</span> Kom i gang</button>
+    <button data-page="cmds"><span class="ico">&#9000;</span> Kommandoer</button>
+    <button data-page="tune"><span class="ico">&#9881;</span> Indstillinger</button>
+    <button data-page="live"><span class="ico">&#9889;</span> Live</button>
+    <button data-page="help"><span class="ico">&#63;</span> Hjælp</button>
+  </nav>
+
+  <div class="spacer"></div>
+
+  <div class="profile-box">
+    <label>Profil</label>
+    <select class="profile" id="profile"></select>
+    <div class="saved-tag" id="savedTag">Gemt</div>
+  </div>
+</aside>
+
+<main>
+  <header>
+    <div class="status">
+      <span class="pip" id="pip"></span>
+      <div>
+        <div class="t" id="statusText">Ikke forbundet</div>
+        <div class="s" id="statusSub">Tryk på Start for at begynde</div>
+      </div>
+    </div>
+    <div class="counter">
+      <b id="total">0</b><span>kommandoer</span>
+    </div>
+    <button class="btn ghost" id="pauseBtn" style="display:none">Pause</button>
+    <button class="btn go" id="mainBtn">Start</button>
+  </header>
+
+  <div class="scroll">
+
+    <!-- ============ KOM I GANG ============ -->
+    <section class="page on" id="page-start">
+      <div class="card">
+        <h2>Din kanal</h2>
+        <p class="hint">Skriv dit Twitch-brugernavn. Det er den chat der får lov at styre spillet.</p>
+        <div class="field">
+          <div class="with-prefix">
+            <span>twitch.tv/</span>
+            <input id="channel" placeholder="ditbrugernavn" spellcheck="false" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Sådan gør du</h2>
+        <ol class="steps">
+          <li>Skriv dit kanalnavn ovenfor.</li>
+          <li>Start spillet du vil spille, og vælg det under <b>Indstillinger → Kun dette spil</b>. Så kan chatten ikke komme til at skrive i Discord eller browseren.</li>
+          <li>Tryk <b>Start</b> oppe i hjørnet.</li>
+          <li>Klik ind i spillet, så det er det aktive vindue. Nu styrer chatten.</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h2>Nødbremse</h2>
+        <div class="callout warn">
+          <span class="em">&#9208;</span>
+          <div>Går noget galt, så tryk <kbd>F8</kbd> hvor som helst — også midt i spillet.
+          Alt sættes på pause og alle taster slippes. Tryk <kbd>F8</kbd> igen for at fortsætte.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Overlay til OBS</h2>
+        <p class="hint">Et skilt på streamen der fortæller seerne hvad de kan skrive.
+        Det viser kommandolisten og opdaterer sig selv, når du ændrer noget herinde.
+        Har du mange kommandoer, bladrer det automatisk videre.<br><br>
+        Tilføj en <b>Browser</b>-kilde i OBS med denne adresse, bredde <b>380</b>,
+        højde <b>480</b>. Baggrunden er gennemsigtig.</p>
+        <div class="copy-row">
+          <code id="overlayUrl">http://localhost:8777</code>
+          <button class="btn ghost" id="copyBtn">Kopiér</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ KOMMANDOER ============ -->
+    <section class="page" id="page-cmds">
+      <div class="card">
+        <h2>Kommandoer</h2>
+        <p class="hint">Det chatten skriver, og hvad der så sker i spillet.
+        Klik på tastefeltet og tryk den tast du vil bruge — så optager den selv.
+        Tryk på &#9654; for at afprøve en kommando med det samme.<br>
+        <b>Forklaringen</b> under hver linje er den seerne læser på overlayet.</p>
+
+        <div class="cmd-head">
+          <div>Chatten skriver</div>
+          <div>Virker også som</div>
+          <div>Handling</div>
+          <div>Tast / værdi</div>
+          <div>Længde (sek.)</div>
+          <div></div>
+        </div>
+        <div id="cmdList"></div>
+        <button class="add-btn" id="addCmd">+ Tilføj kommando</button>
+      </div>
+
+      <div class="card">
+        <div class="callout">
+          <span class="em">&#128161;</span>
+          <div><b>Hold-tricket:</b> sæt en varighed på f.eks. <b>3s</b>, så kan chatten skrive
+          <b>frem 2</b> for at holde tasten nede i 2 sekunder. Det gør bevægelse i spil meget nemmere
+          end at spamme enkelttryk.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ INDSTILLINGER ============ -->
+    <section class="page" id="page-tune">
+      <div class="card">
+        <h2>Hvordan chatten spiller</h2>
+        <p class="hint">Anarki er sjovest med mange seere. Afstemning passer til rolige spil,
+        puslespil og Pokémon.</p>
+        <div class="field">
+          <div class="seg" id="modeSeg">
+            <button data-mode="anarchy">Anarki</button>
+            <button data-mode="democracy">Afstemning</button>
+          </div>
+          <div class="sub" id="modeHelp"></div>
+        </div>
+
+        <div class="field" id="voteField" style="display:none">
+          <label>Hvor længe må chatten stemme?</label>
+          <div class="slider-row">
+            <input type="range" id="voteSeconds" min="3" max="30" step="1">
+            <span class="val" id="voteSecondsVal"></span>
+          </div>
+        </div>
+
+        <div class="field" id="rateField">
+          <label>Hvor hurtigt udføres kommandoer?</label>
+          <div class="slider-row">
+            <input type="range" id="messageRate" min="1" max="20" step="1">
+            <span class="val" id="messageRateVal"></span>
+          </div>
+          <div class="sub">Lavt tal = mere kaos. Højt tal = roligere og mere overskueligt.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Kun dette spil</h2>
+        <p class="hint">Vælg spillets vindue, så chattens tastetryk kun rammer der —
+        og ikke Discord, browseren eller OBS. Stærkt anbefalet.</p>
+        <div class="field">
+          <div class="slider-row">
+            <select class="inp" id="targetWindow" style="flex:1"></select>
+            <button class="btn ghost" id="refreshWin">Opdatér</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Styr på chatten</h2>
+        <div class="grid2">
+          <div class="field">
+            <label>Pause mellem hver seers kommandoer</label>
+            <div class="slider-row">
+              <input type="range" id="userCooldown" min="0" max="30" step="1">
+              <span class="val" id="userCooldownVal"></span>
+            </div>
+            <div class="sub">Forhindrer at én person spammer.</div>
+          </div>
+          <div class="field">
+            <label>Hvor mange kommandoer må vente i kø</label>
+            <div class="slider-row">
+              <input type="range" id="maxQueue" min="5" max="60" step="1">
+              <span class="val" id="maxQueueVal"></span>
+            </div>
+            <div class="sub">Lavt tal holder spillet tæt på realtid.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LIVE ============ -->
+    <section class="page" id="page-live">
+      <div class="live-grid">
+        <div class="card" style="margin:0">
+          <h2 id="liveLeftTitle">Seneste kommandoer</h2>
+          <div id="liveLeft"></div>
+        </div>
+        <div class="card" style="margin:0">
+          <h2>Mest brugt</h2>
+          <div id="liveRight"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HJÆLP ============ -->
+    <section class="page" id="page-help">
+      <div class="card">
+        <h2>Spillet reagerer ikke</h2>
+        <p class="hint" style="margin:0">
+          <b style="color:#fff">Intet sker i spillet:</b> luk programmet, højreklik på
+          <b>START.bat</b> og vælg <i>Kør som administrator</i>. Nogle spil kører med
+          administratorrettigheder, og Windows blokerer tastetryk fra almindelige programmer.<br><br>
+          <b style="color:#fff">Virker i menuen, men ikke i spillet:</b> sæt spillet til
+          <i>borderless window</i> i stedet for fuldskærm.<br><br>
+          <b style="color:#fff">Chatten reagerer forsinket:</b> det er stream-forsinkelsen.
+          Slå <i>lav latenstid</i> til i Twitch-indstillingerne.<br><br>
+          <b style="color:#fff">Der sker slet ingenting:</b> tjek at kanalnavnet er stavet rigtigt,
+          og at der står <i>Forbundet</i> øverst.
+        </p>
+      </div>
+      <div class="card">
+        <h2>Vigtigt om anti-cheat</h2>
+        <div class="callout err">
+          <span class="em">&#9888;</span>
+          <div>Brug det <b>ikke</b> i konkurrencespil som Valorant, CS2, Fortnite eller Rainbow Six.
+          Automatiseret input kan give udelukkelse. Singleplayer, emulatorer, Minecraft
+          og fjollede spil er det rigtige sted.</div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Profiler</h2>
+        <p class="hint" style="margin:0">Skift profil nede i venstre hjørne for at hoppe mellem
+        færdige opsætninger til forskellige spil. Hver profil husker sine egne kommandoer
+        og indstillinger. Ændringer gemmes automatisk i den profil du har valgt.</p>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let cfg = null;            // vores lokale kopi af konfigurationen
+let order = [];            // kommandoernes rækkefølge, som brugeren ser dem
+let serverState = {};
+let editing = false;       // undgå at overskrive felter mens der skrives
+let saveTimer = null;
+
+const MOUSE_LABELS = { left: "Venstreklik", right: "Højreklik", middle: "Midterklik" };
+
+/* ---------------- hjælpere ---------------- */
+function esc(t) {
+  return String(t == null ? "" : t).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+}
+function toast(msg) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), 2200);
+}
+function flashSaved() {
+  const t = $("savedTag");
+  t.classList.add("show");
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove("show"), 1400);
+}
+async function api(path, body) {
+  const opt = body === undefined ? {} :
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  const r = await fetch(path, opt);
+  return r.json();
+}
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    const s = await api("/api/config", { config: cfg, order: cmdNames() });
+    applyServer(s, false);
+    flashSaved();
+  }, 700);
+}
+
+/* ---------------- tastefangst ---------------- */
+const CODE_MAP = {
+  Space: "space", Enter: "enter", Tab: "tab", Backspace: "backspace", Escape: "esc",
+  ShiftLeft: "shift", ShiftRight: "rshift", ControlLeft: "ctrl", ControlRight: "rctrl",
+  AltLeft: "alt", AltRight: "ralt", CapsLock: "capslock",
+  ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
+  Home: "home", End: "end", PageUp: "pageup", PageDown: "pagedown",
+  Insert: "insert", Delete: "delete",
+  Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]", Semicolon: ";",
+  Quote: "'", Backquote: "`", Backslash: "\\", Comma: ",", Period: ".", Slash: "/"
+};
+function codeToKey(code) {
+  if (CODE_MAP[code]) return CODE_MAP[code];
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
+  if (/^Digit[0-9]$/.test(code)) return code.slice(5);
+  if (/^F([1-9]|1[0-2])$/.test(code)) return code.toLowerCase();
+  if (/^Numpad[0-9]$/.test(code)) return "num" + code.slice(6);
+  return null;
+}
+
+/* ---------------- kommandoliste ---------------- */
+function cmdType(spec) {
+  if (spec.move) return "move";
+  if (spec.mouse) return "mouse";
+  return "key";
+}
+function cmdNames() {
+  // JavaScript sorterer tal-agtige nøgler forrest i et objekt, så den
+  // rækkefølge brugeren ser styres af en separat liste.
+  const have = Object.keys(cfg.commands || {});
+  const seen = new Set();
+  const out = [];
+  for (const n of order) if (cfg.commands[n] && !seen.has(n)) { seen.add(n); out.push(n); }
+  for (const n of have) if (!seen.has(n)) { seen.add(n); out.push(n); }
+  order = out;
+  return out;
+}
+
+function renderCmds() {
+  const list = $("cmdList");
+  const names = cmdNames();
+  if (!names.length) {
+    list.innerHTML = '<div class="empty">Ingen kommandoer endnu. Tilføj den første nedenfor.</div>';
+    return;
+  }
+  list.innerHTML = names.map((name) => {
+    const s = cfg.commands[name];
+    const type = cmdType(s);
+    const keys = (s.keys || (s.key ? [s.key] : [])).join(" + ");
+    let valueCell;
+    if (type === "key") {
+      valueCell = `<button class="keycap" data-act="capture" data-name="${esc(name)}">${esc(keys || "klik og tryk")}</button>`;
+    } else if (type === "mouse") {
+      valueCell = `<select data-act="mouse" data-name="${esc(name)}">` +
+        Object.keys(MOUSE_LABELS).map(m =>
+          `<option value="${m}"${s.mouse === m ? " selected" : ""}>${MOUSE_LABELS[m]}</option>`).join("") +
+        `</select>`;
+    } else {
+      const mv = s.move || [0, 0];
+      valueCell = `<div class="xy">
+        <input class="inp" type="number" data-act="mx" data-name="${esc(name)}" value="${mv[0]}" title="Vandret">
+        <input class="inp" type="number" data-act="my" data-name="${esc(name)}" value="${mv[1]}" title="Lodret">
+      </div>`;
+    }
+    const dur = s.max_hold ? s.max_hold : (s.duration != null ? s.duration : 0.15);
+    return `<div class="cmd-row">
+      <div class="cmd-main">
+        <input class="inp" data-act="name" data-name="${esc(name)}" value="${esc(name)}" spellcheck="false">
+        <input class="inp" data-act="aliases" data-name="${esc(name)}" value="${esc((s.aliases||[]).join(", "))}" placeholder="fx w, op" spellcheck="false">
+        <select data-act="type" data-name="${esc(name)}">
+          <option value="key"${type==="key"?" selected":""}>Tastetryk</option>
+          <option value="mouse"${type==="mouse"?" selected":""}>Museklik</option>
+          <option value="move"${type==="move"?" selected":""}>Musebevægelse</option>
+        </select>
+        ${valueCell}
+        <div class="${s.max_hold ? "hold-on" : ""}">
+          <input class="inp" type="number" step="0.05" min="0" data-act="dur" data-name="${esc(name)}" value="${dur}"
+                 title="Sæt 1 sekund eller mere, så kan chatten selv vælge hvor længe">
+        </div>
+        <div class="row-tools">
+          <button class="icon-btn test" data-act="test" data-name="${esc(name)}" title="Afprøv i det aktive vindue">&#9654;</button>
+          <button class="icon-btn del" data-act="del" data-name="${esc(name)}" title="Slet">&#10005;</button>
+        </div>
+      </div>
+      <div class="cmd-info">
+        <span class="tag">Seerne ser</span>
+        <input data-act="info" data-name="${esc(name)}" value="${esc(s.info || "")}"
+               placeholder="valgfri forklaring, fx &quot;Gå fremad&quot;" spellcheck="false">
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renameCommand(oldName, newName) {
+  newName = newName.trim().toLowerCase();
+  if (!newName || newName === oldName) return false;
+  if (cfg.commands[newName]) { toast("Der findes allerede en kommando med det navn"); return false; }
+  const rebuilt = {};
+  for (const [k, v] of Object.entries(cfg.commands)) rebuilt[k === oldName ? newName : k] = v;
+  cfg.commands = rebuilt;
+  order = order.map(n => (n === oldName ? newName : n));
+  return true;
+}
+
+$("cmdList").addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-act]");
+  if (!btn) return;
+  const act = btn.dataset.act, name = btn.dataset.name;
+  if (act === "del") {
+    delete cfg.commands[name];
+    order = order.filter(n => n !== name);
+    renderCmds(); scheduleSave(); return;
+  }
+  if (act === "test") {
+    await api("/api/test", { name });
+    toast("Afprøvede “" + name + "” i det aktive vindue");
+    return;
+  }
+  if (act === "capture") {
+    document.querySelectorAll(".keycap.listening").forEach(k => {
+      k.classList.remove("listening");
+      k.textContent = k.dataset.prev || "klik og tryk";
+    });
+    btn.dataset.prev = btn.textContent;
+    btn.classList.add("listening");
+    btn.textContent = "tryk en tast…";
+    const onKey = (ev) => {
+      ev.preventDefault();
+      const key = codeToKey(ev.code);
+      window.removeEventListener("keydown", onKey, true);
+      btn.classList.remove("listening");
+      if (!key) { btn.textContent = btn.dataset.prev; toast("Den tast kan ikke bruges"); return; }
+      const spec = cfg.commands[name];
+      delete spec.mouse; delete spec.move;
+      spec.key = key; delete spec.keys;
+      btn.textContent = key;
+      scheduleSave();
+    };
+    window.addEventListener("keydown", onKey, true);
+  }
+});
+
+$("cmdList").addEventListener("focusin", () => { editing = true; });
+$("cmdList").addEventListener("focusout", () => { setTimeout(() => { editing = false; }, 200); });
+
+$("cmdList").addEventListener("change", (e) => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const act = el.dataset.act, name = el.dataset.name;
+  const spec = cfg.commands[name];
+  if (!spec && act !== "name") return;
+
+  if (act === "name") {
+    if (renameCommand(name, el.value)) { renderCmds(); scheduleSave(); }
+    else { el.value = name; }
+    return;
+  }
+  if (act === "aliases") {
+    const parts = el.value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+    if (parts.length) spec.aliases = parts; else delete spec.aliases;
+  }
+  if (act === "type") {
+    delete spec.key; delete spec.keys; delete spec.mouse; delete spec.move;
+    if (el.value === "key") spec.key = "space";
+    else if (el.value === "mouse") spec.mouse = "left";
+    else spec.move = [200, 0];
+    renderCmds();
+  }
+  if (act === "info") {
+    const txt = el.value.trim();
+    if (txt) spec.info = txt; else delete spec.info;
+  }
+  if (act === "mouse") spec.mouse = el.value;
+  if (act === "mx" || act === "my") {
+    const mv = spec.move || [0, 0];
+    spec.move = act === "mx" ? [Number(el.value) || 0, mv[1]] : [mv[0], Number(el.value) || 0];
+  }
+  if (act === "dur") {
+    const v = Math.max(0, Number(el.value) || 0);
+    if (v >= 1) { spec.max_hold = v; spec.duration = Math.min(spec.duration || 0.4, v); }
+    else { spec.duration = v; delete spec.max_hold; }
+    renderCmds();
+  }
+  scheduleSave();
+});
+
+$("addCmd").addEventListener("click", () => {
+  let n = 1, name = "ny";
+  while (cfg.commands[name]) name = "ny" + (++n);
+  cfg.commands[name] = { key: "space", duration: 0.15 };
+  order.push(name);
+  renderCmds(); scheduleSave();
+  const rows = $("cmdList").querySelectorAll(".cmd-row");
+  const last = rows[rows.length - 1];
+  if (last) { last.scrollIntoView({ behavior: "smooth", block: "center" }); last.querySelector("input").select(); }
+});
+
+/* ---------------- felter ---------------- */
+$("channel").addEventListener("input", (e) => {
+  cfg.channel = e.target.value.trim().replace(/^.*twitch\.tv\//, "").replace(/^#/, "");
+  scheduleSave();
+});
+$("channel").addEventListener("focus", () => { editing = true; });
+$("channel").addEventListener("blur", () => { editing = false; });
+
+$("modeSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-mode]");
+  if (!b) return;
+  cfg.mode = b.dataset.mode;
+  paintSettings();
+  scheduleSave();
+});
+
+function slider(id, key, fmt, transform) {
+  const el = $(id);
+  el.addEventListener("input", () => {
+    const v = transform ? transform(Number(el.value)) : Number(el.value);
+    cfg[key] = v;
+    $(id + "Val").textContent = fmt(v);
+  });
+  el.addEventListener("change", scheduleSave);
+}
+slider("voteSeconds", "vote_seconds", v => v + " sek.");
+slider("messageRate", "message_rate", v => v.toFixed(1) + " sek.", v => v / 10);
+slider("userCooldown", "user_cooldown", v => v === 0 ? "fra" : v + " sek.");
+slider("maxQueue", "max_queue", v => v + " stk.");
+
+$("targetWindow").addEventListener("change", (e) => { cfg.target_window = e.target.value; scheduleSave(); });
+$("refreshWin").addEventListener("click", () => loadWindows(true));
+
+async function loadWindows(notify) {
+  const { windows } = await api("/api/windows");
+  const sel = $("targetWindow");
+  const cur = cfg.target_window || "";
+  const opts = ['<option value="">Alle vinduer (ikke anbefalet)</option>'];
+  const seen = new Set();
+  for (const w of windows) { if (!seen.has(w)) { seen.add(w); opts.push(`<option value="${esc(w)}">${esc(w)}</option>`); } }
+  if (cur && !seen.has(cur)) opts.push(`<option value="${esc(cur)}">${esc(cur)} (lukket)</option>`);
+  sel.innerHTML = opts.join("");
+  sel.value = cur;
+  if (notify) toast(windows.length + " åbne vinduer fundet");
+}
+
+/* ---------------- knapper ---------------- */
+$("mainBtn").addEventListener("click", async () => {
+  const s = serverState.running ? await api("/api/stop", {}) : await api("/api/start", {});
+  applyServer(s, true);
+  if (s.error) toast(s.error);
+  else if (s.running) { toast("Forbinder til chatten…"); show("live"); }
+});
+$("pauseBtn").addEventListener("click", async () => applyServer(await api("/api/pause", {}), true));
+$("copyBtn").addEventListener("click", () => {
+  navigator.clipboard.writeText($("overlayUrl").textContent).then(() => toast("Adressen er kopieret"));
+});
+$("profile").addEventListener("change", async (e) => {
+  const s = await api("/api/profile", { name: e.target.value });
+  applyServer(s, true);
+  paintAll();
+  toast("Skiftede til " + e.target.value.replace("profiler/", "").replace(".json", ""));
+});
+
+/* ---------------- sider ---------------- */
+function show(page) {
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.page === page));
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("on", p.id === "page-" + page));
+}
+document.querySelectorAll("nav button").forEach(b =>
+  b.addEventListener("click", () => show(b.dataset.page)));
+
+/* ---------------- tegning ---------------- */
+function paintSettings() {
+  document.querySelectorAll("#modeSeg button").forEach(b =>
+    b.classList.toggle("on", b.dataset.mode === (cfg.mode || "anarchy")));
+  const dem = cfg.mode === "democracy";
+  $("voteField").style.display = dem ? "" : "none";
+  $("rateField").style.display = dem ? "none" : "";
+  $("modeHelp").textContent = dem
+    ? "Chatten stemmer, og kommandoen med flest stemmer bliver udført."
+    : "Hver besked bliver til et tastetryk med det samme.";
+
+  $("voteSeconds").value = cfg.vote_seconds ?? 10;
+  $("voteSecondsVal").textContent = ($("voteSeconds").value) + " sek.";
+  $("messageRate").value = Math.round((cfg.message_rate ?? 0.4) * 10);
+  $("messageRateVal").textContent = (cfg.message_rate ?? 0.4).toFixed(1) + " sek.";
+  $("userCooldown").value = cfg.user_cooldown ?? 0;
+  $("userCooldownVal").textContent = (cfg.user_cooldown ?? 0) === 0 ? "fra" : (cfg.user_cooldown + " sek.");
+  $("maxQueue").value = cfg.max_queue ?? 20;
+  $("maxQueueVal").textContent = (cfg.max_queue ?? 20) + " stk.";
+}
+function paintAll() {
+  if (document.activeElement !== $("channel")) $("channel").value = cfg.channel === "DIN_KANAL" ? "" : (cfg.channel || "");
+  paintSettings();
+  if (!editing) renderCmds();
+  loadWindows(false);
+}
+
+function paintLive(s) {
+  const dem = s.mode === "democracy";
+  $("liveLeftTitle").textContent = dem ? "Stemmer lige nu" : "Seneste kommandoer";
+  if (dem) {
+    if (!s.votes.length) {
+      $("liveLeft").innerHTML = '<div class="empty">Venter på stemmer fra chatten…</div>';
+    } else {
+      const max = Math.max(...s.votes.map(v => v.n));
+      $("liveLeft").innerHTML = s.votes.map(v => `
+        <div class="vote${v.n === max ? " lead" : ""}">
+          <div class="lbl"><span>${esc(v.cmd)}</span><b>${v.n}</b></div>
+          <div class="vbar"><span style="width:${Math.round(v.n / max * 100)}%"></span></div>
+        </div>`).join("") +
+        (s.last_winner ? `<div class="sub" style="color:var(--muted);font-size:12px;margin-top:10px">Sidste vinder: ${esc(s.last_winner)}</div>` : "");
+    }
+  } else {
+    $("liveLeft").innerHTML = s.feed.length
+      ? '<ul class="feed">' + s.feed.map(f =>
+          `<li><span class="u">${esc(f.user)}</span><span class="c">${esc(f.cmd)}</span></li>`).join("") + "</ul>"
+      : '<div class="empty">Venter på kommandoer fra chatten…</div>';
+  }
+
+  const tally = {};
+  for (const f of s.feed) { const k = f.cmd.split(" ")[0]; tally[k] = (tally[k] || 0) + 1; }
+  const top = Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  if (!top.length) {
+    $("liveRight").innerHTML = '<div class="empty">Ingen aktivitet endnu.</div>';
+  } else {
+    const max = top[0][1];
+    $("liveRight").innerHTML = top.map(([c, n]) => `
+      <div class="vote">
+        <div class="lbl"><span>${esc(c)}</span><b>${n}</b></div>
+        <div class="vbar"><span style="width:${Math.round(n / max * 100)}%"></span></div>
+      </div>`).join("");
+  }
+}
+
+function applyServer(s, full) {
+  serverState = s;
+
+  const pip = $("pip");
+  pip.className = "pip" + (s.connected ? " live" : (s.running ? " wait" : ""));
+  if (s.paused) {
+    $("statusText").textContent = "På pause";
+    $("statusSub").textContent = "Tryk F8 eller på knappen for at fortsætte";
+  } else if (s.connected) {
+    $("statusText").textContent = "Forbundet til " + (s.config.channel || "");
+    $("statusSub").textContent = s.mode === "democracy" ? "Chatten stemmer" : "Chatten styrer";
+  } else if (s.running) {
+    $("statusText").textContent = "Forbinder…";
+    $("statusSub").textContent = "Kontakter Twitch";
+  } else {
+    $("statusText").textContent = "Ikke forbundet";
+    $("statusSub").textContent = s.error || "Tryk på Start for at begynde";
+  }
+
+  $("total").textContent = s.total;
+  $("mainBtn").textContent = s.running ? "Stop" : "Start";
+  $("mainBtn").className = "btn " + (s.running ? "stop" : "go");
+  $("pauseBtn").style.display = s.running ? "" : "none";
+  $("pauseBtn").textContent = s.paused ? "Fortsæt" : "Pause";
+  $("pauseBtn").className = "btn ghost" + (s.paused ? " paused" : "");
+
+  if (s.overlay_port) $("overlayUrl").textContent = "http://localhost:" + s.overlay_port;
+
+  const sel = $("profile");
+  if (sel.options.length !== s.profiles.length) {
+    sel.innerHTML = s.profiles.map(p =>
+      `<option value="${esc(p)}">${esc(p.replace("profiler/", "").replace(".json", ""))}</option>`).join("");
+  }
+  sel.value = s.profile;
+
+  paintLive(s);
+  if (full) {
+    cfg = s.config;
+    if (!cfg.commands) cfg.commands = {};
+    order = (s.command_order || []).slice();
+  }
+}
+
+/* ---------------- opstart ---------------- */
+(async function init() {
+  const s = await api("/api/state");
+  applyServer(s, true);
+  paintAll();
+  setInterval(async () => {
+    try { applyServer(await api("/api/state"), false); } catch (e) {}
+  }, 600);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<title>Twitch Plays Overlay</title>
+<style>
+  :root {
+    --bg:     rgba(13, 10, 24, 0.86);
+    --edge:   rgba(145, 70, 255, 0.5);
+    --accent: #b98bff;
+    --chip:   rgba(145, 70, 255, 0.9);
+    --good:   #00e0b8;
+    --warn:   #ffb347;
+    --text:   #f4f1ff;
+    --muted:  #a89ec6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: transparent;
+    font-family: "Segoe UI", Inter, system-ui, sans-serif;
+    padding: 14px;
+    color: var(--text);
+  }
+  .panel {
+    width: 352px;
+    background: var(--bg);
+    border: 1px solid var(--edge);
+    border-radius: 16px;
+    padding: 16px 18px 14px;
+    backdrop-filter: blur(7px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
+
+  .head { display: flex; align-items: center; gap: 9px; margin-bottom: 3px; }
+  .head svg { flex-shrink: 0; }
+  .head h1 {
+    font-size: 14px; font-weight: 800; letter-spacing: 0.07em;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, var(--accent), #6fffe0);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub {
+    font-size: 12px; color: var(--muted); line-height: 1.45;
+    margin-bottom: 13px; padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.09);
+  }
+  .sub b { color: var(--text); }
+
+  ul { list-style: none; }
+  li {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 5px 0;
+  }
+  .chip {
+    background: var(--chip); color: #fff;
+    font-size: 13px; font-weight: 700;
+    padding: 3px 10px; border-radius: 7px;
+    flex-shrink: 0; min-width: 62px; text-align: center;
+    box-shadow: 0 2px 8px rgba(145,70,255,0.35);
+  }
+  .desc { font-size: 12.5px; color: var(--text); line-height: 1.35; padding-top: 2px; }
+  .desc .alt { color: var(--muted); font-size: 11.5px; }
+
+  .foot {
+    margin-top: 12px; padding-top: 11px;
+    border-top: 1px solid rgba(255,255,255,0.09);
+    font-size: 11.5px; color: var(--muted); line-height: 1.45;
+  }
+  .foot b { color: var(--accent); }
+
+  .dots { display: flex; gap: 5px; justify-content: center; margin-top: 11px; }
+  .dots i { width: 5px; height: 5px; border-radius: 50%;
+            background: rgba(255,255,255,0.22); transition: background 0.3s, width 0.3s; }
+  .dots i.on { background: var(--accent); width: 16px; border-radius: 3px; }
+
+  .banner {
+    margin-top: 12px; padding: 9px 12px; border-radius: 9px;
+    background: rgba(255,179,71,0.16); border: 1px solid rgba(255,179,71,0.4);
+    color: var(--warn); font-size: 12.5px; font-weight: 700;
+    letter-spacing: 0.04em; text-align: center;
+  }
+
+  #list { animation: fade 0.45s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="panel" id="panel">
+  <div class="head">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+      <path d="M4 3h16v11l-4 4h-3l-3 3H8v-3H4V3z" fill="#b98bff"/>
+      <path d="M10 7v5M15 7v5" stroke="#0d0a18" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <h1>Chatten styrer spillet</h1>
+  </div>
+  <div class="sub" id="sub">Skriv en af kommandoerne i chatten</div>
+  <ul id="list"></ul>
+  <div class="dots hidden" id="dots"></div>
+  <div class="foot hidden" id="foot"></div>
+  <div class="banner hidden" id="banner">&#9208; SAT PÅ PAUSE</div>
+</div>
+
+<script>
+const PER_PAGE = 8;
+const PAGE_MS = 7000;
+let page = 0, pages = 1, lastKey = "", lastFlip = Date.now();
+
+function esc(t) {
+  return String(t == null ? "" : t).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+}
+
+function render(s) {
+  const cmds = s.commands || [];
+  const key = JSON.stringify(cmds) + s.mode;
+
+  // Kommandolisten er skiftet -> start forfra
+  if (key !== lastKey) {
+    lastKey = key;
+    page = 0;
+    lastFlip = Date.now();
+  }
+
+  pages = Math.max(1, Math.ceil(cmds.length / PER_PAGE));
+  if (pages > 1 && Date.now() - lastFlip > PAGE_MS) {
+    page = (page + 1) % pages;
+    lastFlip = Date.now();
+  }
+  if (page >= pages) page = 0;
+
+  document.getElementById("sub").innerHTML = s.mode === "democracy"
+    ? `Skriv en kommando i chatten. Hvert <b>${Math.round(s.vote_seconds || 10)}. sekund</b> bliver den med flest stemmer udført.`
+    : "Skriv en kommando i chatten &mdash; den bliver udf&oslash;rt med det samme.";
+
+  const slice = pages > 1 ? cmds.slice(page * PER_PAGE, (page + 1) * PER_PAGE) : cmds;
+  const list = document.getElementById("list");
+  const html = slice.map(c => {
+    const alt = c.aliases && c.aliases.length
+      ? `<span class="alt">eller ${esc(c.aliases.slice(0, 3).join(", "))}</span>` : "";
+    const info = c.info ? esc(c.info) : "";
+    const body = info ? (info + (alt ? "<br>" + alt : "")) : (alt || "");
+    return `<li><span class="chip">${esc(c.name)}</span><span class="desc">${body}</span></li>`;
+  }).join("");
+
+  if (list.dataset.page !== String(page) || list.dataset.key !== key) {
+    list.dataset.page = String(page);
+    list.dataset.key = key;
+    list.innerHTML = html;
+    list.style.animation = "none";
+    void list.offsetWidth;
+    list.style.animation = "";
+  }
+
+  const dots = document.getElementById("dots");
+  dots.classList.toggle("hidden", pages < 2);
+  if (pages > 1 && dots.children.length !== pages) {
+    dots.innerHTML = Array.from({ length: pages }, () => "<i></i>").join("");
+  }
+  [...dots.children].forEach((d, i) => d.classList.toggle("on", i === page));
+
+  const foot = document.getElementById("foot");
+  if (s.hold_example) {
+    foot.classList.remove("hidden");
+    foot.innerHTML = `Du kan holde en tast nede ved at skrive et tal efter: <b>${esc(s.hold_example)}</b>`;
+  } else {
+    foot.classList.add("hidden");
+  }
+
+  document.getElementById("banner").classList.toggle("hidden", !s.paused);
+}
+
+async function tick() {
+  try {
+    render(await (await fetch("/state", { cache: "no-store" })).json());
+    document.getElementById("panel").style.opacity = "1";
+  } catch (e) {
+    document.getElementById("panel").style.opacity = "0";
+  }
+}
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>
