@@ -123,15 +123,26 @@ scope, then add it to this repository under **Settings → Secrets and variables
 → Actions** as `RELEASES_TOKEN`. The built-in `GITHUB_TOKEN` only has rights to
 this repository, which is why a token is needed to write to the other one.
 
+Before the first release, and any time the pipeline changes, run the workflow
+by hand from the **Actions** tab. It builds and tests exactly as a release
+does but publishes nothing, leaving the installer as a build artifact.
+
 To cut a release, bump the version and push a matching tag:
 
 ```bash
 npm version patch
-git push --follow-tags
+git push origin main --follow-tags
 ```
 
-The workflow runs the tests, refuses to continue if the tag and
-`package.json` disagree, builds the installer and publishes it.
+`npm version` writes the new version, commits it and creates an **annotated**
+tag. That last part matters: `--follow-tags` only pushes annotated tags, so a
+tag made with a plain `git tag v0.1.0` is silently left behind. If you tag by
+hand, use `git tag -a v0.1.0 -m "..."` or push it explicitly with
+`git push origin v0.1.0`.
+
+The workflow then fails early if `RELEASES_TOKEN` is missing or the tag and
+`package.json` disagree, runs the tests, builds the installer and publishes it
+to the releases repo.
 
 ## Licence
 
