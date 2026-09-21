@@ -25,7 +25,7 @@
     "koffi": "^2.9.2"
   },
   "devDependencies": {
-    "electron": "^33.2.1",
+    "electron": "^33.4.11",
     "electron-builder": "^25.1.8"
   }
 }

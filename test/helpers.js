@@ -18,9 +18,12 @@ function ok(label, condition, detail) {
   }
 }
 
+// BigInt has no JSON representation, and struct offsets are read as BigInt.
+const show = (value) => JSON.stringify(value, (_key, v) => (typeof v === 'bigint' ? `${v}n` : v));
+
 function eq(label, actual, expected) {
-  const a = JSON.stringify(actual);
-  const e = JSON.stringify(expected);
+  const a = show(actual);
+  const e = show(expected);
   ok(label, a === e, a === e ? '' : `got ${a}, expected ${e}`);
 }
 

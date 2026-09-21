@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'">
+<title>Streamthings</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<aside>
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v8a2.5 2.5 0 0 1-2.5 2.5H12l-4.5 4.2V16H5.5A2.5 2.5 0 0 1 3 13.5v-8z" fill="#9146ff"/>
+      <path d="M11 6.2h2v2.6h2.6v2H13v2.6h-2v-2.6H8.4v-2H11V6.2z" fill="#0c0a14"/>
+    </svg>
+    <div>
+      <h1>Streamthings</h1>
+      <p data-i18n="app.tagline">Chat plays your game</p>
+    </div>
+  </div>
+
+  <nav>
+    <button data-page="setup" class="on"><span class="ico">&#9654;</span><span data-i18n="nav.setup">Get started</span></button>
+    <button data-page="commands"><span class="ico">&#9000;</span><span data-i18n="nav.commands">Commands</span></button>
+    <button data-page="settings"><span class="ico">&#9881;</span><span data-i18n="nav.settings">Settings</span></button>
+    <button data-page="live"><span class="ico">&#9889;</span><span data-i18n="nav.live">Live</span></button>
+    <button data-page="help"><span class="ico">?</span><span data-i18n="nav.help">Help</span></button>
+  </nav>
+
+  <div class="spacer"></div>
+
+  <div class="update-card hidden" id="updateCard">
+    <div class="update-text" id="updateText"></div>
+    <button class="btn tiny go hidden" id="updateInstall" data-i18n="update.restart">Restart now</button>
+  </div>
+
+  <div class="profile-box">
+    <label data-i18n="profile.label">Profile</label>
+    <div class="profile-row">
+      <select class="profile" id="profileSelect"></select>
+      <button class="icon-btn" id="profileMenuBtn" title="Profile actions">&#8943;</button>
+      <div class="menu hidden" id="profileMenu">
+        <button data-act="new" data-i18n="profile.new">New profile…</button>
+        <button data-act="duplicate" data-i18n="profile.duplicate">Duplicate</button>
+        <button data-act="rename" data-i18n="profile.rename">Rename…</button>
+        <div class="menu-sep"></div>
+        <button data-act="import" data-i18n="profile.import">Import…</button>
+        <button data-act="export" data-i18n="profile.export">Export…</button>
+        <div class="menu-sep"></div>
+        <button data-act="delete" class="danger" data-i18n="profile.delete">Delete…</button>
+      </div>
+    </div>
+    <div class="saved-tag" id="savedTag" data-i18n="profile.saved">Saved</div>
+    <div class="version" id="version"></div>
+  </div>
+</aside>
+
+<main>
+  <header>
+    <div class="status">
+      <span class="pip" id="pip"></span>
+      <div>
+        <div class="t" id="statusText"></div>
+        <div class="s" id="statusSub"></div>
+      </div>
+    </div>
+    <div class="counter">
+      <b id="total">0</b><span data-i18n="status.counter">commands</span>
+    </div>
+    <button class="btn ghost hidden" id="pauseBtn"></button>
+    <button class="btn go" id="mainBtn"></button>
+  </header>
+
+  <div class="scroll">
+
+    <!-- ===================== GET STARTED ===================== -->
+    <section class="page on" id="page-setup">
+      <div class="card">
+        <h2 data-i18n="setup.platform.title">Where is your chat?</h2>
+        <p class="hint" data-i18n="setup.platform.hint"></p>
+        <div class="seg" id="platformSeg">
+          <button data-platform="twitch" data-i18n="setup.platform.twitch">Twitch</button>
+          <button data-platform="youtube" data-i18n="setup.platform.youtube">YouTube</button>
+          <button data-platform="both" data-i18n="setup.platform.both">Both</button>
+        </div>
+      </div>
+
+      <div class="card" id="twitchCard">
+        <h2 data-i18n="setup.twitch.title">Twitch channel</h2>
+        <p class="hint" data-i18n="setup.twitch.hint"></p>
+        <div class="with-prefix">
+          <span>twitch.tv/</span>
+          <input id="twitchChannel" spellcheck="false" autocomplete="off"
+                 data-i18n-placeholder="setup.twitch.placeholder">
+        </div>
+      </div>
+
+      <div class="card" id="youtubeCard">
+        <h2 data-i18n="setup.youtube.title">YouTube channel</h2>
+        <p class="hint" data-i18n="setup.youtube.hint"></p>
+        <input class="inp" id="youtubeChannel" spellcheck="false" autocomplete="off"
+               data-i18n-placeholder="setup.youtube.placeholder">
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="setup.steps.title">How to play</h2>
+        <ol class="steps">
+          <li data-i18n="setup.steps.1"></li>
+          <li data-i18n="setup.steps.2"></li>
+          <li data-i18n="setup.steps.3"></li>
+          <li data-i18n="setup.steps.4"></li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="setup.panic.title">Panic button</h2>
+        <div class="callout warn">
+          <span class="em">&#9208;</span>
+          <div id="panicBody"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="setup.overlay.title">Overlay for OBS</h2>
+        <p class="hint" data-i18n="setup.overlay.hint"></p>
+        <div class="copy-row">
+          <code id="overlayUrl">—</code>
+          <button class="btn ghost" id="copyBtn" data-i18n="button.copy">Copy</button>
+        </div>
+        <p class="hint small" id="overlayObs"></p>
+      </div>
+    </section>
+
+    <!-- ===================== COMMANDS ===================== -->
+    <section class="page" id="page-commands">
+      <div class="card">
+        <h2 data-i18n="commands.title">Commands</h2>
+        <p class="hint" id="commandsHint"></p>
+        <div class="warn-bar hidden" id="commandProblems"></div>
+
+        <div class="cmd-head">
+          <div data-i18n="commands.head.word">Chat types</div>
+          <div data-i18n="commands.head.aliases">Also works as</div>
+          <div data-i18n="commands.head.action">Action</div>
+          <div data-i18n="commands.head.value">Key / value</div>
+          <div data-i18n="commands.head.length">Length</div>
+          <div data-i18n="commands.head.mod">Mods only</div>
+          <div></div>
+        </div>
+        <div id="cmdList"></div>
+        <button class="add-btn" id="addCmd" data-i18n="commands.add">+ Add command</button>
+      </div>
+
+      <div class="card">
+        <div class="callout">
+          <span class="em">&#128161;</span>
+          <div><b data-i18n="commands.holdTip.title"></b><br><span id="holdTipBody"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== SETTINGS ===================== -->
+    <section class="page" id="page-settings">
+      <div class="card">
+        <h2 data-i18n="settings.mode.title">How chat plays</h2>
+        <p class="hint" data-i18n="settings.mode.hint"></p>
+        <div class="seg" id="modeSeg">
+          <button data-mode="anarchy" data-i18n="settings.mode.anarchy">Anarchy</button>
+          <button data-mode="democracy" data-i18n="settings.mode.democracy">Voting</button>
+        </div>
+        <div class="sub" id="modeHelp"></div>
+
+        <div class="field" id="voteField">
+          <label data-i18n="settings.vote.label"></label>
+          <div class="slider-row">
+            <input type="range" id="voteSeconds" min="3" max="30" step="1">
+            <span class="val" id="voteSecondsVal"></span>
+          </div>
+        </div>
+
+        <div class="field" id="rateField">
+          <label data-i18n="settings.rate.label"></label>
+          <div class="slider-row">
+            <input type="range" id="messageRate" min="1" max="20" step="1">
+            <span class="val" id="messageRateVal"></span>
+          </div>
+          <div class="sub" data-i18n="settings.rate.help"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="settings.window.title">Only this game</h2>
+        <p class="hint" data-i18n="settings.window.hint"></p>
+        <div class="slider-row">
+          <select class="inp" id="targetWindow"></select>
+          <button class="btn ghost" id="refreshWin" data-i18n="button.refresh">Refresh</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="settings.limits.title">Keeping chat in check</h2>
+        <div class="grid2">
+          <div class="field">
+            <label data-i18n="settings.cooldown.label"></label>
+            <div class="slider-row">
+              <input type="range" id="userCooldown" min="0" max="30" step="1">
+              <span class="val" id="userCooldownVal"></span>
+            </div>
+            <div class="sub" data-i18n="settings.cooldown.help"></div>
+          </div>
+          <div class="field">
+            <label data-i18n="settings.queue.label"></label>
+            <div class="slider-row">
+              <input type="range" id="maxQueue" min="5" max="60" step="1">
+              <span class="val" id="maxQueueVal"></span>
+            </div>
+            <div class="sub" data-i18n="settings.queue.help"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="settings.app.title">App</h2>
+        <div class="grid2">
+          <div class="field">
+            <label data-i18n="settings.language.label">Language</label>
+            <select class="inp" id="language"></select>
+          </div>
+          <div class="field">
+            <label data-i18n="settings.overlayPort.label">Overlay port</label>
+            <input class="inp" type="number" id="overlayPort" min="1024" max="65535">
+            <div class="sub" data-i18n="settings.overlayPort.help"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== LIVE ===================== -->
+    <section class="page" id="page-live">
+      <div class="live-grid">
+        <div class="card">
+          <h2 id="liveLeftTitle"></h2>
+          <div id="liveLeft"></div>
+        </div>
+        <div class="card">
+          <h2 data-i18n="live.mostUsed">Most used</h2>
+          <div id="liveRight"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== HELP ===================== -->
+    <section class="page" id="page-help">
+      <div class="card">
+        <h2 data-i18n="help.notWorking.title"></h2>
+        <p class="hint block">
+          <b data-i18n="help.notWorking.admin.head"></b>
+          <span data-i18n="help.notWorking.admin.body"></span><br><br>
+          <b data-i18n="help.notWorking.fullscreen.head"></b>
+          <span data-i18n="help.notWorking.fullscreen.body"></span><br><br>
+          <b data-i18n="help.notWorking.delay.head"></b>
+          <span data-i18n="help.notWorking.delay.body"></span><br><br>
+          <b data-i18n="help.notWorking.nothing.head"></b>
+          <span data-i18n="help.notWorking.nothing.body"></span>
+        </p>
+      </div>
+      <div class="card">
+        <h2 data-i18n="help.anticheat.title"></h2>
+        <div class="callout err">
+          <span class="em">&#9888;</span>
+          <div data-i18n="help.anticheat.body"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2 data-i18n="help.profiles.title"></h2>
+        <p class="hint block" data-i18n="help.profiles.body"></p>
+      </div>
+      <div class="card">
+        <h2 data-i18n="help.privacy.title"></h2>
+        <p class="hint block" data-i18n="help.privacy.body"></p>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<div class="backdrop hidden" id="backdrop">
+  <div class="dialog">
+    <h3 id="dialogTitle"></h3>
+    <p id="dialogBody" class="hidden"></p>
+    <input class="inp hidden" id="dialogInput" spellcheck="false">
+    <div class="dialog-buttons">
+      <button class="btn ghost" id="dialogCancel" data-i18n="button.cancel">Cancel</button>
+      <button class="btn go" id="dialogOk"></button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

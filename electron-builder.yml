@@ -1,0 +1,44 @@
+appId: com.kludensvogter.streamthings
+productName: Streamthings
+copyright: Copyright © KludensVogter
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - src/**/*
+  - package.json
+  - "!**/*.map"
+  - "!**/{test,tools,.github,dist}/**"
+
+# koffi ships a native binary that has to be a real file on disk, so it
+# cannot stay packed inside the asar archive.
+asarUnpack:
+  - "**/node_modules/koffi/**"
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icon.ico
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Streamthings
+  deleteAppDataOnUninstall: false
+  # Installing per-user keeps the whole flow free of admin prompts. A game
+  # that itself runs elevated still needs Streamthings started as admin,
+  # which the Help page explains.
+  runAfterFinish: true
+
+publish:
+  provider: github
+  owner: KludensVogter
+  repo: Streamthings_releases
+  releaseType: release

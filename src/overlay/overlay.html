@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Streamthings Overlay</title>
+<style>
+  :root {
+    --bg:     rgba(13, 10, 24, 0.86);
+    --edge:   rgba(145, 70, 255, 0.5);
+    --accent: #b98bff;
+    --chip:   rgba(145, 70, 255, 0.9);
+    --good:   #00e0b8;
+    --warn:   #ffb347;
+    --text:   #f4f1ff;
+    --muted:  #a89ec6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: transparent;
+    font-family: "Segoe UI", Inter, system-ui, sans-serif;
+    padding: 14px;
+    color: var(--text);
+  }
+  .panel {
+    width: 352px;
+    background: var(--bg);
+    border: 1px solid var(--edge);
+    border-radius: 16px;
+    padding: 16px 18px 14px;
+    backdrop-filter: blur(7px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    transition: opacity 0.4s;
+  }
+  .head { display: flex; align-items: center; gap: 9px; margin-bottom: 3px; }
+  .head svg { flex-shrink: 0; }
+  .head h1 {
+    font-size: 14px; font-weight: 800; letter-spacing: 0.07em;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, var(--accent), #6fffe0);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub {
+    font-size: 12px; color: var(--muted); line-height: 1.45;
+    margin-bottom: 13px; padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  }
+  .sub b { color: var(--text); }
+
+  ul { list-style: none; }
+  li { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; }
+  .chip {
+    background: var(--chip); color: #fff;
+    font-size: 13px; font-weight: 700;
+    padding: 3px 10px; border-radius: 7px;
+    flex-shrink: 0; min-width: 62px; text-align: center;
+    box-shadow: 0 2px 8px rgba(145, 70, 255, 0.35);
+    max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .chip.mod { background: rgba(0, 224, 184, 0.85); color: #06231d; }
+  .desc { font-size: 12.5px; color: var(--text); line-height: 1.35; padding-top: 2px; }
+  .desc .alt { color: var(--muted); font-size: 11.5px; }
+  .desc .badge {
+    color: var(--good); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 0.05em; font-weight: 700;
+  }
+
+  .foot {
+    margin-top: 12px; padding-top: 11px;
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+    font-size: 11.5px; color: var(--muted); line-height: 1.45;
+  }
+  .foot b { color: var(--accent); }
+
+  .dots { display: flex; gap: 5px; justify-content: center; margin-top: 11px; }
+  .dots i {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: rgba(255, 255, 255, 0.22);
+    transition: background 0.3s, width 0.3s;
+  }
+  .dots i.on { background: var(--accent); width: 16px; border-radius: 3px; }
+
+  .banner {
+    margin-top: 12px; padding: 9px 12px; border-radius: 9px;
+    background: rgba(255, 179, 71, 0.16); border: 1px solid rgba(255, 179, 71, 0.4);
+    color: var(--warn); font-size: 12.5px; font-weight: 700;
+    letter-spacing: 0.04em; text-align: center;
+  }
+
+  #list { animation: fade 0.45s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="panel" id="panel" style="opacity:0">
+  <div class="head">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v8a2.5 2.5 0 0 1-2.5 2.5H12l-4.5 4.2V16H5.5A2.5 2.5 0 0 1 3 13.5v-8z" fill="#b98bff"/>
+      <path d="M11 6.2h2v2.6h2.6v2H13v2.6h-2v-2.6H8.4v-2H11V6.2z" fill="#0d0a18"/>
+    </svg>
+    <h1 id="title"></h1>
+  </div>
+  <div class="sub" id="sub"></div>
+  <ul id="list"></ul>
+  <div class="dots hidden" id="dots"></div>
+  <div class="foot hidden" id="foot"></div>
+  <div class="banner hidden" id="banner"></div>
+</div>
+
+<script>
+const PER_PAGE = 8;
+const PAGE_MS = 7000;
+let page = 0;
+let lastKey = '';
+let lastFlip = Date.now();
+
+const $ = (id) => document.getElementById(id);
+
+function esc(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+}
+
+function render(state) {
+  const strings = state.strings || {};
+  const t = (key, vars) => {
+    let text = strings[key] !== undefined ? strings[key] : '';
+    if (vars) {
+      for (const [name, value] of Object.entries(vars)) {
+        text = text.split('{' + name + '}').join(String(value));
+      }
+    }
+    return text;
+  };
+
+  const commands = state.commands || [];
+  const key = JSON.stringify(commands) + state.mode + JSON.stringify(strings);
+
+  // Start from the top whenever the streamer changes the command list.
+  if (key !== lastKey) {
+    lastKey = key;
+    page = 0;
+    lastFlip = Date.now();
+  }
+
+  const pages = Math.max(1, Math.ceil(commands.length / PER_PAGE));
+  if (pages > 1 && Date.now() - lastFlip > PAGE_MS) {
+    page = (page + 1) % pages;
+    lastFlip = Date.now();
+  }
+  if (page >= pages) page = 0;
+
+  $('title').textContent = t('overlay.title');
+  $('sub').innerHTML = state.mode === 'democracy'
+    ? esc(t('overlay.sub.democracy', { seconds: Math.round(state.voteSeconds || 10) }))
+      .replace(/(\d+)/, '<b>$1</b>')
+    : esc(t('overlay.sub.anarchy'));
+
+  const slice = pages > 1 ? commands.slice(page * PER_PAGE, (page + 1) * PER_PAGE) : commands;
+  const html = slice.map((command) => {
+    const parts = [];
+    if (command.info) parts.push(esc(command.info));
+    if (command.aliases && command.aliases.length) {
+      parts.push('<span class="alt">'
+        + esc(t('overlay.alsoWorks', { words: command.aliases.slice(0, 3).join(', ') }))
+        + '</span>');
+    }
+    if (command.modOnly) {
+      parts.push('<span class="badge">' + esc(t('overlay.modOnly')) + '</span>');
+    }
+    return '<li><span class="chip' + (command.modOnly ? ' mod' : '') + '">'
+      + esc(command.id) + '</span>'
+      + '<span class="desc">' + parts.join('<br>') + '</span></li>';
+  }).join('');
+
+  const list = $('list');
+  if (list.dataset.page !== String(page) || list.dataset.key !== key) {
+    list.dataset.page = String(page);
+    list.dataset.key = key;
+    list.innerHTML = html;
+    list.style.animation = 'none';
+    void list.offsetWidth;
+    list.style.animation = '';
+  }
+
+  const dots = $('dots');
+  dots.classList.toggle('hidden', pages < 2);
+  if (pages > 1 && dots.children.length !== pages) {
+    dots.innerHTML = Array.from({ length: pages }, () => '<i></i>').join('');
+  }
+  [...dots.children].forEach((dot, i) => dot.classList.toggle('on', i === page));
+
+  const foot = $('foot');
+  if (state.holdExample) {
+    foot.classList.remove('hidden');
+    foot.innerHTML = esc(t('overlay.holdHint', { example: state.holdExample }))
+      .replace(esc(state.holdExample), '<b>' + esc(state.holdExample) + '</b>');
+  } else {
+    foot.classList.add('hidden');
+  }
+
+  $('banner').textContent = t('overlay.paused');
+  $('banner').classList.toggle('hidden', !state.paused);
+}
+
+async function tick() {
+  try {
+    const response = await fetch('/state', { cache: 'no-store' });
+    render(await response.json());
+    $('panel').style.opacity = '1';
+  } catch {
+    $('panel').style.opacity = '0';
+  }
+}
+
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

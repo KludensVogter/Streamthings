@@ -1,0 +1,53 @@
+name: Build and release
+
+# Pushing a version tag builds the installer and publishes it to the
+# releases repo, which is where the app's auto-updater looks.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Check the tag matches package.json
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $PKG"
+            exit 1
+          fi
+        if: startsWith(github.ref, 'refs/tags/')
+
+      - name: Build and publish installer
+        run: npx electron-builder --win --publish always
+        env:
+          # A Personal Access Token with repo scope, stored as a secret on
+          # this repository. The built-in GITHUB_TOKEN cannot write releases
+          # to a different repository.
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+
+      - name: Keep the installer as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Streamthings-installer
+          path: dist/*.exe
+          if-no-files-found: error
