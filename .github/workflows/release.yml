@@ -1,7 +1,9 @@
 name: Build and release
 
-# Pushing a version tag builds the installer and publishes it to the
-# releases repo, which is where the app's auto-updater looks.
+# Pushing a version tag builds the installer and publishes it to the releases
+# repo, which is where the app's auto-updater looks. Running the workflow by
+# hand builds the same installer but publishes nothing, so the pipeline can be
+# tested without putting anything in front of users.
 on:
   push:
     tags:
@@ -20,13 +22,22 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npm test
+      - name: Check the release token is available
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if [ -z "$RELEASES_TOKEN" ]; then
+            echo "The RELEASES_TOKEN secret is not set on this repository."
+            echo "Create a personal access token with the 'repo' scope and add it"
+            echo "under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          echo "Token is present."
 
       - name: Check the tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
           TAG="${GITHUB_REF_NAME#v}"
@@ -35,19 +46,28 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match package.json version $PKG"
             exit 1
           fi
-        if: startsWith(github.ref, 'refs/tags/')
+          echo "Releasing version $PKG"
 
-      - name: Build and publish installer
-        run: npx electron-builder --win --publish always
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      # A tag publishes; a manual run only builds, so the pipeline can be
+      # exercised safely before anyone cuts a real release.
+      - name: Build installer
+        run: npx electron-builder --win --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
         env:
-          # A Personal Access Token with repo scope, stored as a secret on
-          # this repository. The built-in GITHUB_TOKEN cannot write releases
-          # to a different repository.
+          # The built-in GITHUB_TOKEN only has rights to this repository, so
+          # writing releases to the separate releases repo needs its own token.
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
 
       - name: Keep the installer as a build artifact
         uses: actions/upload-artifact@v4
         with:
           name: Streamthings-installer
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            dist/latest.yml
           if-no-files-found: error
