@@ -4,7 +4,17 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const OVERLAY_HTML = path.join(__dirname, '..', 'overlay', 'overlay.html');
+const OVERLAY_DIR = path.join(__dirname, '..', 'overlay');
+
+// Two independent browser sources, so the streamer can place the command
+// list and the poll wherever each one suits her scene.
+const PAGES = {
+  '/': 'commands.html',
+  '/index.html': 'commands.html',
+  '/commands': 'commands.html',
+  '/poll': 'poll.html',
+  '/poll.html': 'poll.html',
+};
 
 /**
  * Serves the viewer-facing sign that OBS loads as a browser source.
@@ -55,8 +65,9 @@ class OverlayServer {
       return;
     }
 
-    if (url === '/' || url === '/index.html' || url === '/overlay.html') {
-      fs.readFile(OVERLAY_HTML, (err, data) => {
+    const page = PAGES[url.replace(/\/+$/, '') || '/'];
+    if (page) {
+      fs.readFile(path.join(OVERLAY_DIR, page), (err, data) => {
         if (err) {
           res.writeHead(500);
           res.end('overlay missing');

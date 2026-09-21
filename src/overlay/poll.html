@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Streamthings — poll</title>
+<style>
+  :root {
+    --bg:     rgba(13, 10, 24, 0.88);
+    --edge:   rgba(145, 70, 255, 0.5);
+    --accent: #b98bff;
+    --good:   #00e0b8;
+    --warn:   #ffb347;
+    --text:   #f4f1ff;
+    --muted:  #a89ec6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: transparent;
+    font-family: "Segoe UI", Inter, system-ui, sans-serif;
+    padding: 14px;
+    color: var(--text);
+  }
+
+  /* Nothing is drawn at all unless a poll is running, so the source can
+     just live in the scene permanently. */
+  .panel {
+    width: 372px;
+    background: var(--bg);
+    border: 1px solid var(--edge);
+    border-radius: 16px;
+    padding: 16px 18px 15px;
+    backdrop-filter: blur(7px);
+    box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+    transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.2, 1.1, 0.3, 1);
+  }
+  .panel.show { opacity: 1; transform: none; }
+
+  .head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 7px;
+  }
+  .head .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--good); animation: pulse 1.8s infinite;
+  }
+  .head.closed .dot { background: var(--muted); animation: none; }
+  .head .count { margin-left: auto; color: var(--muted); letter-spacing: 0.04em; }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(0, 224, 184, 0.55); }
+    70%  { box-shadow: 0 0 0 7px rgba(0, 224, 184, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 224, 184, 0); }
+  }
+
+  h1 {
+    font-size: 17px; font-weight: 700; line-height: 1.3;
+    margin-bottom: 13px; letter-spacing: -0.01em;
+  }
+
+  .clock {
+    height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.1);
+    overflow: hidden; margin-bottom: 13px;
+  }
+  .clock > span {
+    display: block; height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--good));
+    transition: width 0.4s linear;
+  }
+
+  .option { margin-bottom: 10px; }
+  .option:last-child { margin-bottom: 0; }
+  .option .row {
+    display: flex; align-items: center; gap: 9px;
+    font-size: 13.5px; margin-bottom: 5px;
+  }
+  .key {
+    background: rgba(145, 70, 255, 0.9); color: #fff;
+    font-weight: 800; font-size: 12px;
+    min-width: 26px; padding: 2px 7px; border-radius: 6px; text-align: center;
+    flex-shrink: 0;
+  }
+  .label {
+    font-weight: 600; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
+  .tally {
+    margin-left: auto; flex-shrink: 0; font-variant-numeric: tabular-nums;
+    color: var(--muted); font-size: 12.5px;
+  }
+  .tally b { color: var(--text); font-size: 13.5px; }
+
+  .bar { height: 9px; border-radius: 5px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+  .bar > span {
+    display: block; height: 100%; border-radius: 5px; width: 0;
+    background: linear-gradient(90deg, var(--accent), #d9a6ff);
+    transition: width 0.45s cubic-bezier(0.3, 1, 0.4, 1);
+  }
+  .option.leading .key { background: rgba(0, 224, 184, 0.9); color: #06231d; }
+  .option.leading .bar > span { background: linear-gradient(90deg, var(--good), #7dffe0); }
+
+  .foot {
+    margin-top: 13px; padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+    font-size: 11.5px; color: var(--muted); line-height: 1.45; text-align: center;
+  }
+  .foot b { color: var(--accent); }
+  .result {
+    margin-top: 13px; padding: 10px 12px; border-radius: 10px;
+    background: rgba(0, 224, 184, 0.13); border: 1px solid rgba(0, 224, 184, 0.35);
+    font-size: 13px; font-weight: 700; color: var(--good); text-align: center;
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="panel" id="panel">
+  <div class="head" id="head">
+    <span class="dot"></span>
+    <span id="status"></span>
+    <span class="count" id="count"></span>
+  </div>
+  <h1 id="question"></h1>
+  <div class="clock hidden" id="clock"><span id="clockBar"></span></div>
+  <div id="options"></div>
+  <div class="foot" id="foot"></div>
+  <div class="result hidden" id="result"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let lastShape = '';
+
+function esc(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+}
+
+function render(state) {
+  const poll = state.poll;
+  const panel = $('panel');
+
+  if (!poll || poll.status === 'idle') {
+    panel.classList.remove('show');
+    lastShape = '';
+    return;
+  }
+
+  const strings = state.strings || {};
+  const t = (key, vars) => {
+    let text = strings[key] !== undefined ? strings[key] : '';
+    if (vars) {
+      for (const [name, value] of Object.entries(vars)) {
+        text = text.split('{' + name + '}').join(String(value));
+      }
+    }
+    return text;
+  };
+
+  const open = poll.status === 'open';
+  $('head').classList.toggle('closed', !open);
+  $('status').textContent = open ? t('poll.open') : t('poll.closed');
+  $('count').textContent = t('poll.votes', { count: poll.totalVotes });
+  $('question').textContent = poll.question;
+
+  // Rebuild the rows only when the options themselves change, so the bars
+  // animate from their old width instead of jumping.
+  const shape = JSON.stringify(poll.options.map((o) => [o.key, o.label]));
+  if (shape !== lastShape) {
+    lastShape = shape;
+    $('options').innerHTML = poll.options.map((option, index) => `
+      <div class="option" data-index="${index}">
+        <div class="row">
+          <span class="key">${esc(option.key)}</span>
+          <span class="label">${esc(option.label)}</span>
+          <span class="tally"><b data-votes>0</b> <span data-percent>0%</span></span>
+        </div>
+        <div class="bar"><span data-bar></span></div>
+      </div>`).join('');
+  }
+
+  poll.options.forEach((option, index) => {
+    const row = $('options').querySelector(`[data-index="${index}"]`);
+    if (!row) return;
+    row.classList.toggle('leading', Boolean(option.leading));
+    row.querySelector('[data-votes]').textContent = option.votes;
+    row.querySelector('[data-percent]').textContent = `${option.percent}%`;
+    row.querySelector('[data-bar]').style.width = `${option.percent}%`;
+  });
+
+  const clock = $('clock');
+  if (open && poll.durationSeconds > 0) {
+    clock.classList.remove('hidden');
+    const left = poll.remainingMs / (poll.durationSeconds * 1000);
+    $('clockBar').style.width = `${Math.max(0, Math.min(1, left)) * 100}%`;
+  } else {
+    clock.classList.add('hidden');
+  }
+
+  const foot = $('foot');
+  const result = $('result');
+  if (open) {
+    foot.classList.remove('hidden');
+    const keys = poll.options.map((o) => o.key).join(', ');
+    foot.innerHTML = esc(t('poll.howTo', { keys })).replace(esc(keys), `<b>${esc(keys)}</b>`);
+    result.classList.add('hidden');
+  } else {
+    foot.classList.add('hidden');
+    const winners = poll.options.filter((o) => o.leading);
+    if (winners.length === 0) {
+      result.textContent = t('poll.noVotes');
+    } else if (winners.length > 1) {
+      result.textContent = t('poll.tie', { options: winners.map((w) => w.label).join(' / ') });
+    } else {
+      result.textContent = t('poll.winner', { option: winners[0].label, votes: winners[0].votes });
+    }
+    result.classList.remove('hidden');
+  }
+
+  panel.classList.add('show');
+}
+
+async function tick() {
+  try {
+    render(await (await fetch('/state', { cache: 'no-store' })).json());
+  } catch {
+    $('panel').classList.remove('show');
+  }
+}
+
+tick();
+setInterval(tick, 500);
+</script>
+</body>
+</html>

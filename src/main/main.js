@@ -200,6 +200,10 @@ function registerIpc() {
     return runner.profiles.exportTo(id, picked.filePath);
   });
 
+  handle('poll:start', (config) => ({ result: runner.startPoll(config), state: runner.state() }));
+  handle('poll:stop', () => { runner.stopPoll(); return runner.state(); });
+  handle('poll:close', () => { runner.closePoll(); return runner.state(); });
+
   handle('command:test', (id) => runner.testCommand(id));
   handle('windows:list', () => input.listWindows());
   handle('overlay:open', () => {

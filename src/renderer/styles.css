@@ -439,3 +439,51 @@ kbd {
 .dialog p { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
 .dialog .inp { margin-bottom: 18px; }
 .dialog-buttons { display: flex; gap: 9px; justify-content: flex-end; }
+
+/* ---------------- polls ---------------- */
+.poll-option {
+  display: grid; grid-template-columns: 78px 1fr 30px;
+  gap: 8px; align-items: center; margin-bottom: 7px;
+}
+.poll-option .inp { padding: 8px 10px; font-size: 13px; }
+.poll-option .key-input { text-align: center; font-weight: 700; color: var(--accent-lt); }
+
+.poll-actions { display: flex; gap: 9px; align-items: center; margin-top: 4px; }
+.poll-note { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+.poll-live { margin-bottom: 12px; }
+.poll-live .row {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 13.5px; margin-bottom: 5px;
+}
+.poll-live .key {
+  background: rgba(145, 70, 255, 0.85); color: #fff; font-weight: 700;
+  font-size: 11.5px; min-width: 24px; padding: 2px 7px;
+  border-radius: 5px; text-align: center; flex-shrink: 0;
+}
+.poll-live .label {
+  font-weight: 600; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.poll-live .tally {
+  margin-left: auto; flex-shrink: 0; color: var(--muted);
+  font-variant-numeric: tabular-nums; font-size: 12.5px;
+}
+.poll-live .tally b { color: var(--text); }
+.poll-live.leading .key { background: rgba(0, 224, 184, 0.85); color: #06231d; }
+.poll-live.leading .vbar > span { background: linear-gradient(90deg, var(--good), #7dffe0); }
+
+.poll-clock { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.poll-clock .track {
+  flex: 1; height: 5px; border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1); overflow: hidden;
+}
+.poll-clock .track > span {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--good));
+  transition: width 0.4s linear;
+}
+.poll-clock .left {
+  font-size: 12.5px; color: var(--accent-lt);
+  font-weight: 600; font-variant-numeric: tabular-nums;
+}

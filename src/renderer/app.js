@@ -9,7 +9,7 @@ let profile = null;          // local, editable copy of the active profile
 let saveTimer = null;
 let currentPage = 'setup';
 
-const OVERLAY_SIZE = { width: 380, height: 480 };
+const OVERLAY_SIZE = { width: 380, height: 560 };
 
 /* ---------------- helpers ---------------- */
 
@@ -621,6 +621,165 @@ function renderUpdate(status) {
 
 $('updateInstall').addEventListener('click', () => window.api.installUpdate());
 
+/* ---------------- polls ---------------- */
+
+// Drafted in memory: a poll is usually something she types out and runs
+// there and then, not a setting worth keeping.
+const pollDraft = {
+  question: '',
+  options: [{ key: '1', label: '' }, { key: '2', label: '' }],
+  durationSeconds: 60,
+};
+
+function renderPollOptions() {
+  $('pollOptions').innerHTML = pollDraft.options.map((option, index) => `
+    <div class="poll-option">
+      <input class="inp key-input" data-poll="key" data-index="${index}"
+             value="${esc(option.key)}" placeholder="${esc(t('poll.key.placeholder'))}" spellcheck="false">
+      <input class="inp" data-poll="label" data-index="${index}"
+             value="${esc(option.label)}"
+             placeholder="${esc(t('poll.option.placeholder', { n: index + 1 }))}" spellcheck="false">
+      <button class="icon-btn del" data-poll="remove" data-index="${index}"
+              title="${esc(t('button.delete'))}">&#10005;</button>
+    </div>`).join('');
+  renderPollClash();
+}
+
+/**
+ * Poll keys that are also command words. Nothing breaks when they overlap,
+ * both simply happen, but it is worth saying so out loud.
+ */
+function renderPollClash() {
+  const words = new Set();
+  for (const command of profile?.commands || []) {
+    words.add(String(command.id).toLowerCase());
+    for (const alias of command.aliases || []) words.add(String(alias).toLowerCase());
+  }
+  const clashing = pollDraft.options
+    .map((option) => option.key.trim().toLowerCase())
+    .filter((key) => key && words.has(key));
+
+  const bar = $('pollClash');
+  if (clashing.length === 0) {
+    bar.classList.add('hidden');
+    return;
+  }
+  const keys = clashing.map((key) => `"${key}"`).join(', ');
+  bar.textContent = t(clashing.length === 1 ? 'poll.clash.one' : 'poll.clash.many', { keys });
+  bar.classList.remove('hidden');
+}
+
+$('pollOptions').addEventListener('input', (event) => {
+  const target = event.target.closest('[data-poll]');
+  if (!target) return;
+  const option = pollDraft.options[Number(target.dataset.index)];
+  if (!option) return;
+  if (target.dataset.poll === 'key') {
+    option.key = target.value;
+    renderPollClash();
+  }
+  if (target.dataset.poll === 'label') option.label = target.value;
+});
+
+$('pollOptions').addEventListener('click', (event) => {
+  const target = event.target.closest('[data-poll="remove"]');
+  if (!target) return;
+  if (pollDraft.options.length <= 2) return;
+  pollDraft.options.splice(Number(target.dataset.index), 1);
+  renderPollOptions();
+});
+
+$('pollAddOption').addEventListener('click', () => {
+  if (pollDraft.options.length >= 8) return;
+  pollDraft.options.push({ key: String(pollDraft.options.length + 1), label: '' });
+  renderPollOptions();
+  const inputs = $('pollOptions').querySelectorAll('[data-poll="label"]');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+});
+
+$('pollQuestion').addEventListener('input', (event) => {
+  pollDraft.question = event.target.value;
+});
+
+$('pollDuration').addEventListener('input', (event) => {
+  pollDraft.durationSeconds = Number(event.target.value);
+  $('pollDurationVal').textContent = pollDraft.durationSeconds === 0
+    ? t('poll.duration.forever')
+    : `${pollDraft.durationSeconds} s`;
+});
+
+$('pollStart').addEventListener('click', async () => {
+  const response = await window.api.startPoll({
+    question: pollDraft.question,
+    options: pollDraft.options,
+    durationSeconds: pollDraft.durationSeconds,
+  });
+  state = response.state;
+  if (!response.result.ok) toast(t(`error.${response.result.reason}`));
+  renderAll(false);
+});
+
+$('pollStop').addEventListener('click', async () => {
+  state = await window.api.stopPoll();
+  renderAll(false);
+});
+
+$('pollClose').addEventListener('click', async () => {
+  state = await window.api.closePoll();
+  renderAll(false);
+});
+
+$('pollCopyBtn').addEventListener('click', async () => {
+  if (!state || !state.overlayUrl) return;
+  await navigator.clipboard.writeText(`${state.overlayUrl}/poll`);
+  toast(t('setup.overlay.copied'));
+});
+
+function renderPoll() {
+  const poll = state.poll;
+  const open = poll.status === 'open';
+  const closed = poll.status === 'closed';
+
+  $('pollStart').classList.toggle('hidden', open);
+  $('pollStop').classList.toggle('hidden', !open);
+  $('pollClose').classList.toggle('hidden', !closed);
+
+  const hasChannel = Boolean(state.settings.twitchChannel || state.settings.youtubeChannel);
+  $('pollNote').textContent = hasChannel ? '' : t('poll.needChannel');
+
+  $('pollOverlayUrl').textContent = state.overlayUrl ? `${state.overlayUrl}/poll` : '—';
+
+  const card = $('pollLiveCard');
+  if (poll.status === 'idle') {
+    card.classList.add('hidden');
+    return;
+  }
+  card.classList.remove('hidden');
+  $('pollLiveTitle').textContent = open ? t('poll.live.title') : t('poll.results.title');
+
+  const fraction = poll.durationSeconds > 0
+    ? Math.max(0, Math.min(1, poll.remainingMs / (poll.durationSeconds * 1000)))
+    : 0;
+  const clock = open && poll.durationSeconds > 0
+    ? `<div class="poll-clock">
+         <div class="track"><span data-width="${Math.round(fraction * 100)}"></span></div>
+         <span class="left">${Math.ceil(poll.remainingMs / 1000)} s</span>
+       </div>`
+    : '';
+
+  $('pollLive').innerHTML = clock + poll.options.map((option) => `
+    <div class="poll-live${option.leading ? ' leading' : ''}">
+      <div class="row">
+        <span class="key">${esc(option.key)}</span>
+        <span class="label">${esc(option.label)}</span>
+        <span class="tally"><b>${option.votes}</b> &middot; ${option.percent}%</span>
+      </div>
+      <div class="vbar"><span data-width="${option.percent}"></span></div>
+    </div>`).join('');
+
+  applyBarWidths($('pollLive'));
+}
+
 /* ---------------- rendering ---------------- */
 
 function adoptProfile() {
@@ -794,6 +953,8 @@ function renderAll(full) {
   renderProfiles();
   renderProblems();
   renderLive(full);
+  renderPoll();
+  if (full) renderPollOptions();
 }
 
 /* ---------------- start ---------------- */
@@ -809,6 +970,9 @@ function renderAll(full) {
   $('language').value = state.settings.language;
   $('version').textContent = t('update.current', { version: info.version });
 
+  $('pollDuration').value = pollDraft.durationSeconds;
+  $('pollDurationVal').textContent = `${pollDraft.durationSeconds} s`;
+
   renderAll(true);
   await refreshWindows(false);
   renderUpdate(await window.api.getUpdateStatus());
@@ -818,7 +982,13 @@ function renderAll(full) {
     renderStatus();
     renderLive();
     renderProblems();
+    renderPoll();
   });
+
+  // The vote countdown moves on its own, so the poll page ticks while open.
+  setInterval(() => {
+    if (currentPage === 'poll' && state && state.poll.status === 'open') renderPoll();
+  }, 500);
   window.api.onUpdateChanged(renderUpdate);
 
 }());

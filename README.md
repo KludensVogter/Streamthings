@@ -27,8 +27,12 @@ interface — there is no file to edit.
   it registers inside games and not just in menus.
 - **Only your game.** Pick the game's window and chat's keys can never land in
   Discord, your browser or OBS.
-- **A sign for your viewers.** A browser source for OBS lists the commands and
-  what each one does, in the app's language, updating itself as you edit.
+- **A sign for your viewers.** A browser source for OBS lists every command and
+  what each one does, all on one page, updating itself as you edit.
+- **Polls.** Ask chat a question and let them answer by typing. Entirely separate
+  from chat playing the game: it runs whether or not they are in control, and it
+  never swallows their messages. Its own browser source, invisible until a poll
+  is running.
 - **Moderator-only commands.** Mark a command so only mods and you can fire it.
 - **Panic button.** <kbd>F8</kbd> anywhere pauses everything and releases every
   held key.
@@ -58,11 +62,16 @@ Single-player games, emulators, Minecraft and silly games are the point.
 ## How it works
 
 ```
-Twitch IRC ─┐
-            ├─► Engine ─► Win32 SendInput ─► the game
-YouTube  ───┘     │
-                  └────► Overlay server ─► OBS browser source
+Twitch IRC ─┐                ┌─► Engine ─► Win32 SendInput ─► the game
+            ├─► every msg ───┤
+YouTube  ───┘                └─► Poll  ─► tally
+                                    │
+         Overlay server ────────────┴──► /       commands, one page
+                                         /poll   the current poll
 ```
+
+Both features see every message and neither consumes it, so a poll can run
+while chat plays and vice versa.
 
 | Piece | What it does |
 |---|---|
@@ -71,8 +80,9 @@ YouTube  ───┘     │
 | `src/main/chat/twitch.js` | Anonymous Twitch IRC with tag parsing for moderator badges |
 | `src/main/chat/youtube.js` | YouTube live chat over the innertube endpoint, no API key |
 | `src/main/engine.js` | Modes, queueing, cooldowns, mod-only rules, focused-window guard |
+| `src/main/poll.js` | Polls: options, one vote per viewer, tallies and timing |
 | `src/main/profiles.js` | Profile storage, defaults, import and export |
-| `src/main/overlay-server.js` | The localhost server OBS points at |
+| `src/main/overlay-server.js` | The localhost server OBS points at, serving both overlay pages |
 | `src/renderer/` | The interface, with `i18n/*.json` holding every string |
 
 Twitch is read as an anonymous guest, so the app cannot post and never sees a
@@ -92,8 +102,9 @@ npm start
 npm test
 ```
 
-151 tests cover the scancode table and `INPUT` struct layout, chat parsing for
-both platforms, every engine mode, profile handling and translation coverage.
+199 tests cover the scancode table and `INPUT` struct layout, chat parsing for
+both platforms, every engine mode, poll tallying and its independence from the
+engine, profile handling and translation coverage.
 One test presses a real key through `SendInput` and reads it back with
 `GetAsyncKeyState`.
 

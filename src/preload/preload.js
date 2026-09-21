@@ -28,6 +28,10 @@ contextBridge.exposeInMainWorld('api', {
   importProfile: () => ipcRenderer.invoke('profile:import'),
   exportProfile: (id) => ipcRenderer.invoke('profile:export', id),
 
+  startPoll: (config) => ipcRenderer.invoke('poll:start', config),
+  stopPoll: () => ipcRenderer.invoke('poll:stop'),
+  closePoll: () => ipcRenderer.invoke('poll:close'),
+
   testCommand: (id) => ipcRenderer.invoke('command:test', id),
   listWindows: () => ipcRenderer.invoke('windows:list'),
   openOverlay: () => ipcRenderer.invoke('overlay:open'),

@@ -25,6 +25,7 @@
     <button data-page="setup" class="on"><span class="ico">&#9654;</span><span data-i18n="nav.setup">Get started</span></button>
     <button data-page="commands"><span class="ico">&#9000;</span><span data-i18n="nav.commands">Commands</span></button>
     <button data-page="settings"><span class="ico">&#9881;</span><span data-i18n="nav.settings">Settings</span></button>
+    <button data-page="poll"><span class="ico">&#9678;</span><span data-i18n="nav.poll">Poll</span></button>
     <button data-page="live"><span class="ico">&#9889;</span><span data-i18n="nav.live">Live</span></button>
     <button data-page="help"><span class="ico">?</span><span data-i18n="nav.help">Help</span></button>
   </nav>
@@ -237,6 +238,57 @@
       </div>
     </section>
 
+    <!-- ===================== POLL ===================== -->
+    <section class="page" id="page-poll">
+      <div class="card">
+        <h2 data-i18n="poll.title">Ask chat a question</h2>
+        <p class="hint" data-i18n="poll.hint"></p>
+
+        <div class="field">
+          <label data-i18n="poll.question.label">Question</label>
+          <input class="inp" id="pollQuestion" spellcheck="false"
+                 data-i18n-placeholder="poll.question.placeholder">
+        </div>
+
+        <div class="field">
+          <label data-i18n="poll.options.label">Options</label>
+          <div id="pollOptions"></div>
+          <button class="add-btn" id="pollAddOption" data-i18n="poll.addOption">+ Add option</button>
+        </div>
+
+        <div class="warn-bar hidden" id="pollClash"></div>
+
+        <div class="field">
+          <label data-i18n="poll.duration.label">How long can they vote?</label>
+          <div class="slider-row">
+            <input type="range" id="pollDuration" min="0" max="300" step="15">
+            <span class="val" id="pollDurationVal"></span>
+          </div>
+        </div>
+
+        <div class="poll-actions">
+          <button class="btn go" id="pollStart" data-i18n="poll.start">Start poll</button>
+          <button class="btn stop hidden" id="pollStop" data-i18n="poll.stop">Stop voting</button>
+          <button class="btn ghost hidden" id="pollClose" data-i18n="poll.close">Clear from overlay</button>
+          <span class="poll-note" id="pollNote"></span>
+        </div>
+      </div>
+
+      <div class="card hidden" id="pollLiveCard">
+        <h2 id="pollLiveTitle"></h2>
+        <div id="pollLive"></div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="poll.overlay.title">Poll overlay</h2>
+        <p class="hint" data-i18n="poll.overlay.hint"></p>
+        <div class="copy-row">
+          <code id="pollOverlayUrl">&#8212;</code>
+          <button class="btn ghost" id="pollCopyBtn" data-i18n="button.copy">Copy</button>
+        </div>
+      </div>
+    </section>
+
     <!-- ===================== LIVE ===================== -->
     <section class="page" id="page-live">
       <div class="live-grid">
@@ -276,6 +328,14 @@
       <div class="card">
         <h2 data-i18n="help.profiles.title"></h2>
         <p class="hint block" data-i18n="help.profiles.body"></p>
+      </div>
+      <div class="card">
+        <h2 data-i18n="help.poll.title"></h2>
+        <p class="hint block" data-i18n="help.poll.body"></p>
+      </div>
+      <div class="card">
+        <h2 data-i18n="help.overlays.title"></h2>
+        <p class="hint block" data-i18n="help.overlays.body"></p>
       </div>
       <div class="card">
         <h2 data-i18n="help.privacy.title"></h2>
