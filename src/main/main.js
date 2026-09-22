@@ -44,6 +44,7 @@ function start() {
 
   app.on('will-quit', async (event) => {
     globalShortcut.unregisterAll();
+    input.enableOverrideHooks(false);
     if (runner) {
       event.preventDefault();
       const closing = runner;
@@ -111,9 +112,13 @@ function pushState() {
 function registerPanicKey() {
   globalShortcut.unregisterAll();
   const key = runner.settings.get().panicKey || 'F8';
+  // The override hooks must never swallow this one.
+  input.setPanicKeyName(key.toLowerCase());
   try {
     globalShortcut.register(key, () => {
       if (!runner) return;
+      // Hand the keyboard straight back before anything else.
+      input.releaseOverride();
       runner.togglePause();
       pushState();
     });
@@ -206,6 +211,7 @@ function registerIpc() {
 
   handle('command:test', (id) => runner.testCommand(id));
   handle('windows:list', () => input.listWindows());
+  handle('override:status', () => input.overrideStatus());
   handle('overlay:open', () => {
     const url = runner.overlay.url();
     if (url) shell.openExternal(url);

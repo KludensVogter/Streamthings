@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'">
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; frame-src http://localhost:*">
 <title>Streamthings</title>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -25,6 +25,7 @@
     <button data-page="setup" class="on"><span class="ico">&#9654;</span><span data-i18n="nav.setup">Get started</span></button>
     <button data-page="commands"><span class="ico">&#9000;</span><span data-i18n="nav.commands">Commands</span></button>
     <button data-page="settings"><span class="ico">&#9881;</span><span data-i18n="nav.settings">Settings</span></button>
+    <button data-page="look"><span class="ico">&#9673;</span><span data-i18n="nav.look">Overlay look</span></button>
     <button data-page="poll"><span class="ico">&#9678;</span><span data-i18n="nav.poll">Poll</span></button>
     <button data-page="live"><span class="ico">&#9889;</span><span data-i18n="nav.live">Live</span></button>
     <button data-page="help"><span class="ico">?</span><span data-i18n="nav.help">Help</span></button>
@@ -237,6 +238,90 @@
       </div>
     </section>
 
+    <!-- ===================== OVERLAY LOOK ===================== -->
+    <section class="page" id="page-look">
+      <div class="look-grid">
+        <div class="look-controls">
+          <div class="card">
+            <h2 data-i18n="look.colours.title">Colours</h2>
+            <p class="hint" data-i18n="look.colours.hint"></p>
+            <div class="swatches">
+              <label class="swatch">
+                <input type="color" id="themeAccent">
+                <span data-i18n="look.accent">Accent</span>
+              </label>
+              <label class="swatch">
+                <input type="color" id="themeBackground">
+                <span data-i18n="look.background">Background</span>
+              </label>
+              <label class="swatch">
+                <input type="color" id="themeText">
+                <span data-i18n="look.text">Text</span>
+              </label>
+            </div>
+            <div class="field spaced">
+              <label data-i18n="look.opacity">Background opacity</label>
+              <div class="slider-row">
+                <input type="range" id="themeOpacity" min="15" max="100" step="1">
+                <span class="val" id="themeOpacityVal"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 data-i18n="look.shape.title">Shape and size</h2>
+            <div class="field">
+              <label data-i18n="look.width">Width</label>
+              <div class="slider-row">
+                <input type="range" id="themeWidth" min="240" max="640" step="4">
+                <span class="val" id="themeWidthVal"></span>
+              </div>
+            </div>
+            <div class="field">
+              <label data-i18n="look.radius">Corner rounding</label>
+              <div class="slider-row">
+                <input type="range" id="themeRadius" min="0" max="32" step="1">
+                <span class="val" id="themeRadiusVal"></span>
+              </div>
+            </div>
+            <div class="field">
+              <label data-i18n="look.scale">Text size</label>
+              <div class="slider-row">
+                <input type="range" id="themeScale" min="75" max="150" step="5">
+                <span class="val" id="themeScaleVal"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 data-i18n="look.parts.title">What to show</h2>
+            <div class="chips look-chips" id="themeParts">
+              <button class="chip-toggle" data-theme="border"><span data-i18n="look.border">Border</span></button>
+              <button class="chip-toggle" data-theme="showTitle"><span data-i18n="look.showTitle">Heading</span></button>
+              <button class="chip-toggle" data-theme="showAliases"><span data-i18n="look.showAliases">Other words</span></button>
+              <button class="chip-toggle" data-theme="showHoldHint"><span data-i18n="look.showHoldHint">Hold tip</span></button>
+            </div>
+            <button class="btn ghost spaced-more" id="themeReset"
+                    data-i18n="look.reset">Back to defaults</button>
+          </div>
+        </div>
+
+        <div class="look-preview">
+          <div class="card">
+            <h2 data-i18n="look.preview.title">Preview</h2>
+            <p class="hint" data-i18n="look.preview.hint"></p>
+            <div class="preview-stage">
+              <iframe id="previewCommands" title="commands overlay preview"></iframe>
+            </div>
+            <div class="preview-stage">
+              <iframe id="previewPoll" title="poll overlay preview"></iframe>
+              <div class="preview-note" id="previewPollNote" data-i18n="look.preview.pollIdle"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ===================== POLL ===================== -->
     <section class="page" id="page-poll">
       <div class="card">
@@ -331,6 +416,13 @@
       <div class="card">
         <h2 data-i18n="help.hidden.title"></h2>
         <p class="hint block" data-i18n="help.hidden.body"></p>
+      </div>
+      <div class="card">
+        <h2 data-i18n="help.override.title"></h2>
+        <div class="callout warn">
+          <span class="em">&#9888;</span>
+          <div data-i18n="help.override.body"></div>
+        </div>
       </div>
       <div class="card">
         <h2 data-i18n="help.poll.title"></h2>

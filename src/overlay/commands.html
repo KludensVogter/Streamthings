@@ -37,8 +37,7 @@
   .head h1 {
     font-size: 14px; font-weight: 800; letter-spacing: 0.07em;
     text-transform: uppercase;
-    background: linear-gradient(90deg, var(--accent), #6fffe0);
-    -webkit-background-clip: text; background-clip: text; color: transparent;
+    color: var(--accent);
   }
   .sub {
     font-size: 12px; color: var(--muted); line-height: 1.45;
@@ -58,7 +57,7 @@
     font-size: 12.5px; font-weight: 700;
     padding: 2px 9px; border-radius: 6px;
     flex-shrink: 0; min-width: 58px; text-align: center;
-    box-shadow: 0 2px 6px rgba(145, 70, 255, 0.3);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
     max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .chip.mod { background: rgba(0, 224, 184, 0.85); color: #06231d; }
@@ -97,8 +96,8 @@
 <div class="panel" id="panel" style="opacity:0">
   <div class="head">
     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v8a2.5 2.5 0 0 1-2.5 2.5H12l-4.5 4.2V16H5.5A2.5 2.5 0 0 1 3 13.5v-8z" fill="#b98bff"/>
-      <path d="M11 6.2h2v2.6h2.6v2H13v2.6h-2v-2.6H8.4v-2H11V6.2z" fill="#0d0a18"/>
+      <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v8a2.5 2.5 0 0 1-2.5 2.5H12l-4.5 4.2V16H5.5A2.5 2.5 0 0 1 3 13.5v-8z" fill="var(--accent)"/>
+      <path d="M11 6.2h2v2.6h2.6v2H13v2.6h-2v-2.6H8.4v-2H11V6.2z" fill="var(--bg)"/>
     </svg>
     <h1 id="title"></h1>
   </div>
@@ -119,6 +118,31 @@ function esc(value) {
     }[c]));
 }
 
+/** Paints the streamer's chosen look onto the page's CSS variables. */
+function rgba(hex, alpha) {
+  const n = parseInt(String(hex).slice(1), 16);
+  if (!Number.isFinite(n)) return `rgba(13, 10, 24, ${alpha})`;
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+function applyTheme(theme) {
+  if (!theme) return;
+  const root = document.documentElement.style;
+  root.setProperty('--accent', theme.accent);
+  root.setProperty('--text', theme.text);
+  root.setProperty('--chip', rgba(theme.accent, 0.9));
+  root.setProperty('--bg', rgba(theme.background, theme.opacity));
+  root.setProperty('--edge', theme.border ? rgba(theme.accent, 0.5) : 'transparent');
+  root.setProperty('--muted', rgba(theme.text, 0.62));
+
+  const panel = document.getElementById('panel');
+  panel.style.width = `${theme.width}px`;
+  panel.style.borderRadius = `${theme.radius}px`;
+  // zoom reflows rather than just scaling pixels, so the panel really does
+  // get bigger instead of being stretched.
+  document.body.style.zoom = theme.scale;
+}
+
 function render(state) {
   const strings = state.strings || {};
   const t = (key, vars) => {
@@ -131,11 +155,16 @@ function render(state) {
     return text;
   };
 
+  applyTheme(state.theme);
+
+  const theme = state.theme || {};
   const commands = state.commands || [];
-  const key = JSON.stringify([commands, state.mode, state.voteSeconds, strings, state.paused]);
+  const key = JSON.stringify([commands, state.mode, state.voteSeconds, strings,
+    state.paused, theme.showTitle, theme.showAliases, theme.showHoldHint]);
   if (key === lastKey) return;
   lastKey = key;
 
+  document.querySelector('.head').classList.toggle('hidden', theme.showTitle === false);
   $('title').textContent = t('overlay.title');
   $('sub').innerHTML = state.mode === 'democracy'
     ? esc(t('overlay.sub.democracy', { seconds: Math.round(state.voteSeconds || 10) }))
@@ -147,7 +176,7 @@ function render(state) {
   $('list').innerHTML = commands.map((command) => {
     const bits = [];
     if (command.info) bits.push(esc(command.info));
-    if (command.aliases && command.aliases.length) {
+    if (theme.showAliases !== false && command.aliases && command.aliases.length) {
       bits.push('<span class="alt">'
         + esc(t('overlay.alsoWorks', { words: command.aliases.slice(0, 3).join(', ') }))
         + '</span>');
@@ -159,7 +188,7 @@ function render(state) {
   }).join('');
 
   const foot = $('foot');
-  if (state.holdExample) {
+  if (state.holdExample && theme.showHoldHint !== false) {
     foot.classList.remove('hidden');
     foot.innerHTML = esc(t('overlay.holdHint', { example: state.holdExample }))
       .replace(esc(state.holdExample), '<b>' + esc(state.holdExample) + '</b>');

@@ -76,7 +76,7 @@
     font-size: 13.5px; margin-bottom: 5px;
   }
   .key {
-    background: rgba(145, 70, 255, 0.9); color: #fff;
+    background: var(--chip); color: #fff;
     font-weight: 800; font-size: 12px;
     min-width: 26px; padding: 2px 7px; border-radius: 6px; text-align: center;
     flex-shrink: 0;
@@ -94,7 +94,7 @@
   .bar { height: 9px; border-radius: 5px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
   .bar > span {
     display: block; height: 100%; border-radius: 5px; width: 0;
-    background: linear-gradient(90deg, var(--accent), #d9a6ff);
+    background: linear-gradient(90deg, var(--accent), var(--accent));
     transition: width 0.45s cubic-bezier(0.3, 1, 0.4, 1);
   }
   .option.leading .key { background: rgba(0, 224, 184, 0.9); color: #06231d; }
@@ -139,6 +139,31 @@ function esc(value) {
     }[c]));
 }
 
+/** Paints the streamer's chosen look onto the page's CSS variables. */
+function rgba(hex, alpha) {
+  const n = parseInt(String(hex).slice(1), 16);
+  if (!Number.isFinite(n)) return `rgba(13, 10, 24, ${alpha})`;
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+function applyTheme(theme) {
+  if (!theme) return;
+  const root = document.documentElement.style;
+  root.setProperty('--accent', theme.accent);
+  root.setProperty('--text', theme.text);
+  root.setProperty('--chip', rgba(theme.accent, 0.9));
+  root.setProperty('--bg', rgba(theme.background, theme.opacity));
+  root.setProperty('--edge', theme.border ? rgba(theme.accent, 0.5) : 'transparent');
+  root.setProperty('--muted', rgba(theme.text, 0.62));
+
+  const panel = document.getElementById('panel');
+  panel.style.width = `${theme.width}px`;
+  panel.style.borderRadius = `${theme.radius}px`;
+  // zoom reflows rather than just scaling pixels, so the panel really does
+  // get bigger instead of being stretched.
+  document.body.style.zoom = theme.scale;
+}
+
 function render(state) {
   const poll = state.poll;
   const panel = $('panel');
@@ -159,6 +184,8 @@ function render(state) {
     }
     return text;
   };
+
+  applyTheme(state.theme);
 
   const open = poll.status === 'open';
   $('head').classList.toggle('closed', !open);

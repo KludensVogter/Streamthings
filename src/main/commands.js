@@ -178,7 +178,12 @@ async function execute(command, seconds, context = {}) {
   duration = Math.max(0, Math.min(duration, MAX_DURATION));
 
   if (command.override) {
+    // Let go of what she is holding, then keep her off those keys for as
+    // long as the command lasts, so chat actually wins rather than being
+    // out-mashed.
     input.releaseIfDown(context.overrideKeys || [], context.overrideButtons || []);
+    input.beginOverride(context.overrideKeys || [], context.overrideButtons || [],
+      duration * 1000);
   }
 
   if (command.type === 'move') {

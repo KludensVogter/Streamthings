@@ -44,12 +44,14 @@ class Engine extends EventEmitter {
     // rebuild the list every time it fires.
     this.overrideKeys = this.commands.allKeys();
     this.overrideButtons = this.commands.allButtons();
+    this.usesOverride = this.commands.commands.some((c) => c.override);
   }
 
   /** Swap settings without dropping the chat connection or the queue. */
   reconfigure(profile) {
     const previousMode = this.mode;
     this.apply(profile);
+    this.syncOverrideHooks();
     if (this.mode !== previousMode) {
       this.votes.clear();
       this.voters.clear();
@@ -65,7 +67,16 @@ class Engine extends EventEmitter {
     this.paused = false;
     this.total = 0;
     this.feed = [];
+    this.syncOverrideHooks();
     this.restartLoop();
+  }
+
+  /**
+   * The keyboard hooks only exist while a profile actually has an
+   * overriding command and chat is playing. No override, no hook.
+   */
+  syncOverrideHooks() {
+    input.enableOverrideHooks(this.running && this.usesOverride);
   }
 
   restartLoop() {
@@ -84,6 +95,7 @@ class Engine extends EventEmitter {
     this.votes.clear();
     this.voters.clear();
     input.releaseAll();
+    input.enableOverrideHooks(false);
     this.emitState();
   }
 
@@ -91,6 +103,7 @@ class Engine extends EventEmitter {
     this.paused = Boolean(paused);
     if (this.paused) {
       input.releaseAll();
+      input.releaseOverride();
       this.queue.length = 0;
     }
     this.emitState();

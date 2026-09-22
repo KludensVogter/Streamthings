@@ -295,6 +295,7 @@ class Runner extends EventEmitter {
     }
 
     return {
+      theme: this.settings.get().overlayTheme,
       poll: this.poll.active ? this.poll.state() : null,
       mode: this.engine.mode,
       paused: this.engine.paused,

@@ -18,8 +18,20 @@ function ok(label, condition, detail) {
   }
 }
 
+/**
+ * Object key order is not something a test should care about, so keys are
+ * sorted before comparing. Array order is meaningful and left alone.
+ */
+function stable(value) {
+  if (Array.isArray(value)) return value.map(stable);
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.keys(value).sort().map((k) => [k, stable(value[k])]));
+  }
+  return value;
+}
+
 // BigInt has no JSON representation, and struct offsets are read as BigInt.
-const show = (value) => JSON.stringify(value, (_key, v) => (typeof v === 'bigint' ? `${v}n` : v));
+const show = (value) => JSON.stringify(stable(value), (_key, v) => (typeof v === 'bigint' ? `${v}n` : v));
 
 function eq(label, actual, expected) {
   const a = show(actual);

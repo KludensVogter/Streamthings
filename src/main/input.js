@@ -2,6 +2,7 @@
 
 const koffi = require('koffi');
 const { SCANCODES, EXTENDED, MOUSE_BUTTONS } = require('./scancodes');
+const hooks = require('./hooks');
 
 const user32 = koffi.load('user32.dll');
 
@@ -194,8 +195,28 @@ function releaseIfDown(names, buttons) {
   return released;
 }
 
+/**
+ * Full override: let go of what is held, then stop the streamer's own
+ * presses of those keys from reaching anything for the length of the
+ * command. Only does anything while the hooks are installed.
+ */
+function beginOverride(keyNames, buttons, milliseconds) {
+  const virtualKeys = (keyNames || []).map(virtualKeyFor).filter(Boolean);
+  return hooks.suppress(virtualKeys, buttons, milliseconds);
+}
+
+function enableOverrideHooks(enabled) {
+  return enabled ? hooks.install() : (hooks.uninstall(), false);
+}
+
+function setPanicKeyName(name) {
+  hooks.setPanicKey(virtualKeyFor(name));
+}
+
 module.exports = {
   keyDown, keyUp, mouseDown, mouseUp, mouseMove,
   releaseAll, heldKeys, foregroundTitle, listWindows,
   virtualKeyFor, isKeyDown, isButtonDown, releaseIfDown,
+  beginOverride, enableOverrideHooks, setPanicKeyName,
+  releaseOverride: hooks.release, overrideStatus: hooks.status,
 };

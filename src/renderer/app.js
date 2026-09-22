@@ -86,6 +86,7 @@ function showPage(page) {
     section.classList.toggle('on', section.id === `page-${page}`);
   }
   if (page === 'settings') refreshWindows(false);
+  if (page === 'look') refreshPreviews();
 }
 
 for (const button of document.querySelectorAll('nav button')) {
@@ -810,6 +811,89 @@ function renderPoll() {
   applyBarWidths($('pollLive'));
 }
 
+/* ---------------- overlay look ---------------- */
+
+let themeTimer = null;
+
+function theme() {
+  return state.settings.overlayTheme;
+}
+
+/** Saved on a short delay so dragging a slider is not a burst of writes. */
+function queueThemeSave(patch) {
+  Object.assign(state.settings.overlayTheme, patch);
+  renderTheme();
+  clearTimeout(themeTimer);
+  themeTimer = setTimeout(async () => {
+    state = await window.api.saveSettings({ overlayTheme: state.settings.overlayTheme });
+    flashSaved();
+    refreshPreviews();
+  }, 350);
+}
+
+function bindColour(id, key) {
+  $(id).addEventListener('input', (event) => queueThemeSave({ [key]: event.target.value }));
+}
+bindColour('themeAccent', 'accent');
+bindColour('themeBackground', 'background');
+bindColour('themeText', 'text');
+
+function bindThemeSlider(id, key, toValue) {
+  $(id).addEventListener('input', (event) => {
+    queueThemeSave({ [key]: toValue(Number(event.target.value)) });
+  });
+}
+bindThemeSlider('themeOpacity', 'opacity', (v) => v / 100);
+bindThemeSlider('themeWidth', 'width', (v) => v);
+bindThemeSlider('themeRadius', 'radius', (v) => v);
+bindThemeSlider('themeScale', 'scale', (v) => v / 100);
+
+$('themeParts').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-theme]');
+  if (!button) return;
+  const key = button.dataset.theme;
+  queueThemeSave({ [key]: !theme()[key] });
+});
+
+$('themeReset').addEventListener('click', async () => {
+  state = await window.api.saveSettings({ overlayTheme: null });
+  renderTheme();
+  refreshPreviews();
+  toast(t('look.wasReset'));
+});
+
+/** Reloads the preview frames so they pick the new look straight up. */
+function refreshPreviews() {
+  if (!state.overlayUrl) return;
+  const stamp = Date.now();
+  $('previewCommands').src = `${state.overlayUrl}/?preview=${stamp}`;
+  $('previewPoll').src = `${state.overlayUrl}/poll?preview=${stamp}`;
+}
+
+function renderTheme() {
+  const current = theme();
+  if (!current) return;
+
+  if (document.activeElement !== $('themeAccent')) $('themeAccent').value = current.accent;
+  if (document.activeElement !== $('themeBackground')) $('themeBackground').value = current.background;
+  if (document.activeElement !== $('themeText')) $('themeText').value = current.text;
+
+  $('themeOpacity').value = Math.round(current.opacity * 100);
+  $('themeOpacityVal').textContent = `${Math.round(current.opacity * 100)}%`;
+  $('themeWidth').value = current.width;
+  $('themeWidthVal').textContent = `${current.width} px`;
+  $('themeRadius').value = current.radius;
+  $('themeRadiusVal').textContent = `${current.radius} px`;
+  $('themeScale').value = Math.round(current.scale * 100);
+  $('themeScaleVal').textContent = `${Math.round(current.scale * 100)}%`;
+
+  for (const button of $('themeParts').querySelectorAll('[data-theme]')) {
+    button.classList.toggle('on', Boolean(current[button.dataset.theme]));
+  }
+
+  $('previewPollNote').classList.toggle('hidden', state.poll.status !== 'idle');
+}
+
 /* ---------------- rendering ---------------- */
 
 function adoptProfile() {
@@ -903,11 +987,19 @@ function renderProfiles() {
   select.value = state.profile.id;
 }
 
-/** CSP blocks style attributes, so widths are applied after insertion. */
-function applyBarWidths(container) {
-  for (const bar of container.querySelectorAll('[data-width]')) {
-    bar.style.width = `${bar.dataset.width}%`;
-  }
+// Bar widths come from a constructed stylesheet rather than a style
+// attribute on each bar: the page's own Content-Security-Policy forbids
+// inline styles, and setting them anyway filled the console with warnings.
+// Percentages are whole numbers, so all 101 rules fit in one sheet written
+// once at startup and the markup just carries data-width.
+const barWidths = new CSSStyleSheet();
+barWidths.replaceSync(
+  Array.from({ length: 101 }, (_, i) => `[data-width="${i}"]{width:${i}%}`).join(''),
+);
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, barWidths];
+
+function applyBarWidths() {
+  // Nothing to do: the data-width attribute styles itself.
 }
 
 let lastLiveKey = '';
@@ -984,6 +1076,7 @@ function renderAll(full) {
   renderProblems();
   renderLive(full);
   renderPoll();
+  renderTheme();
   if (full) renderPollOptions();
 }
 

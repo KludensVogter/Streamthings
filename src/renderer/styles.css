@@ -532,3 +532,47 @@ kbd {
 }
 .hold-cap::-webkit-outer-spin-button,
 .hold-cap::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ---------------- overlay look ---------------- */
+.look-grid { display: grid; grid-template-columns: minmax(360px, 1fr) minmax(400px, 1fr); gap: 16px; align-items: start; }
+.look-controls .card:last-child, .look-preview .card { margin-bottom: 0; }
+
+.swatches { display: flex; gap: 10px; }
+.swatch {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px;
+  cursor: pointer; font-size: 12px; color: var(--muted); font-weight: 600;
+}
+.swatch input[type=color] {
+  width: 100%; height: 42px; padding: 0; cursor: pointer;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.swatch input[type=color]::-webkit-color-swatch-wrapper { padding: 4px; }
+.swatch input[type=color]::-webkit-color-swatch { border: none; border-radius: 6px; }
+.swatch:hover input[type=color] { border-color: rgba(145, 70, 255, 0.5); }
+
+.look-chips { margin-left: 0 !important; flex-wrap: wrap; }
+.look-chips .chip-toggle { padding: 7px 13px; font-size: 12.5px; }
+
+/* The preview loads the real overlay pages, so what she sees is what OBS gets. */
+.preview-stage {
+  position: relative; border-radius: 12px; overflow: hidden;
+  background:
+    linear-gradient(45deg, #1a1630 25%, transparent 25%, transparent 75%, #1a1630 75%),
+    linear-gradient(45deg, #1a1630 25%, #12101f 25%, #12101f 75%, #1a1630 75%);
+  background-size: 18px 18px;
+  background-position: 0 0, 9px 9px;
+  border: 1px solid var(--line);
+}
+.preview-stage iframe { display: block; width: 100%; height: 470px; border: none; }
+.preview-stage + .preview-stage iframe { height: 300px; }
+.preview-note {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 12.5px; color: var(--muted); pointer-events: none; text-align: center; padding: 0 20px;
+}
+
+/* Spacing helpers, so the markup carries no style attributes at all:
+   the page's Content-Security-Policy forbids them. */
+.field.spaced { margin-top: 16px; }
+.btn.spaced-more { margin-top: 18px; }
+.preview-stage + .preview-stage { margin-top: 14px; }

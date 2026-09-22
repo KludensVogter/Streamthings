@@ -35,8 +35,10 @@ interface — there is no file to edit.
   is running.
 - **Switches per command.** Hide one from the overlay while it still works,
   restrict it to moderators, let chat hold the key by typing a number after it,
-  or let it override your own keys — releasing whatever you are holding so chat
-  wins the argument.
+  or let it override your own hands — releasing whatever you are holding and
+  ignoring your presses until the command finishes, so you cannot out-mash chat.
+- **Your own look.** Colours, opacity, width, rounding and text size for both
+  overlays, with a live preview of the real pages.
 - **Panic button.** <kbd>F8</kbd> anywhere pauses everything and releases every
   held key.
 - **Profiles.** One per game, with import and export for sharing.
@@ -84,6 +86,7 @@ while chat plays and vice versa.
 | `src/main/chat/youtube.js` | YouTube live chat over the innertube endpoint, no API key |
 | `src/main/engine.js` | Modes, queueing, cooldowns, mod-only rules, focused-window guard |
 | `src/main/poll.js` | Polls: options, one vote per viewer, tallies and timing |
+| `src/main/hooks.js` | Low-level keyboard and mouse hooks, used only by the override switch |
 | `src/main/profiles.js` | Profile storage, defaults, import and export |
 | `src/main/overlay-server.js` | The localhost server OBS points at, serving both overlay pages |
 | `src/renderer/` | The interface, with `i18n/*.json` holding every string |
@@ -91,6 +94,20 @@ while chat plays and vice versa.
 Twitch is read as an anonymous guest, so the app cannot post and never sees a
 password or a token. Nothing is sent anywhere except the requests needed to
 read chat.
+
+### About the override switch
+
+Ignoring the streamer's own key presses needs a low-level keyboard hook, the
+same Windows API a keylogger would use. Antivirus software watches for it, so
+on an unsigned installer a false positive is a real possibility.
+
+The hook is written to be as narrow as that lets it be. It is installed only
+while a profile has an overriding command **and** chat is playing; it answers
+exactly one question, whether this particular key is suppressed right now;
+nothing is recorded, stored or sent; suppression is time-boxed so it ends on
+its own; injected input and the panic key are never suppressed; and any error
+in the callback falls through to passing the key on. Turn Override off on every
+command and the hook is never installed at all.
 
 ## Development
 
@@ -105,9 +122,10 @@ npm start
 npm test
 ```
 
-230 tests cover the scancode table and `INPUT` struct layout, chat parsing for
+293 tests cover the scancode table and `INPUT` struct layout, chat parsing for
 both platforms, every engine mode, poll tallying and its independence from the
-engine, the per-command switches, profile handling and translation coverage.
+engine, the per-command switches, the override guards, overlay theming, profile
+handling and translation coverage.
 One test presses a real key through `SendInput` and reads it back with
 `GetAsyncKeyState`.
 
