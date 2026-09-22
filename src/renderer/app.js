@@ -71,7 +71,7 @@ function applyDictionary() {
 }
 
 function exampleHold() {
-  const holdable = (profile?.commands || []).find((c) => Number(c.maxHold) > 0);
+  const holdable = (profile?.commands || []).find((c) => c.allowHold && Number(c.maxHold) > 0);
   return holdable ? `${holdable.id} 2` : 'forward 2';
 }
 
@@ -148,6 +148,19 @@ function commandType(command) {
   return 'key';
 }
 
+const ICONS = {
+  eyeOpen: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2C4.2 3.2 1.5 7.4 1.5 8s2.7 4.8 6.5 4.8S14.5 8.6 14.5 8 11.8 3.2 8 3.2z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="1.9" fill="currentColor"/></svg>',
+  eyeShut: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2C4.2 3.2 1.5 7.4 1.5 8s2.7 4.8 6.5 4.8S14.5 8.6 14.5 8 11.8 3.2 8 3.2z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.2 12.8 12.8 3.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  shield: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 13 3.6v4.2c0 3.2-2.1 5.3-5 6.4-2.9-1.1-5-3.2-5-6.4V3.6z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>',
+  override: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.2 1.6 3.4 9h3.3l-.9 5.4L12.6 7H9.3z" fill="currentColor"/></svg>',
+  hold: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8.6" r="5.4" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 5.6v3.2l2.1 1.3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+};
+
+function chip(index, act, on, icon, label, title) {
+  return `<button class="chip-toggle${on ? ' on' : ''}" data-act="${act}" data-index="${index}"
+            title="${esc(title)}">${icon}<span>${esc(label)}</span></button>`;
+}
+
 function renderCommands() {
   const list = $('cmdList');
   const commands = profile?.commands || [];
@@ -178,9 +191,12 @@ function renderCommands() {
       </div>`;
     }
 
-    const length = Number(command.maxHold) > 0
-      ? Number(command.maxHold)
-      : (command.duration !== undefined ? Number(command.duration) : 0.15);
+    const holdOn = Boolean(command.allowHold);
+    const holdCap = holdOn
+      ? `<input class="inp hold-cap" type="number" step="0.5" min="0.5" data-act="maxHold"
+                data-index="${index}" value="${Number(command.maxHold) || 3}"
+                title="${esc(t('commands.holdMax.title'))}">`
+      : '';
 
     return `<div class="cmd-row">
       <div class="cmd-main">
@@ -194,15 +210,9 @@ function renderCommands() {
           <option value="move"${type === 'move' ? ' selected' : ''}>${esc(t('commands.type.move'))}</option>
         </select>
         ${valueCell}
-        <div class="${Number(command.maxHold) > 0 ? 'hold-on' : ''}" data-hold="${esc(t('commands.canHold'))}">
-          <input class="inp" type="number" step="0.05" min="0" data-act="length" data-index="${index}"
-                 value="${length}" title="${esc(t('commands.holdTitle'))}">
-        </div>
-        <div class="switch" title="${esc(t('commands.modOnly.title'))}">
-          <input type="checkbox" id="mod${index}" data-act="modOnly" data-index="${index}"
-                 ${command.modOnly ? 'checked' : ''}>
-          <label for="mod${index}"></label>
-        </div>
+        <input class="inp" type="number" step="0.05" min="0" data-act="length" data-index="${index}"
+               value="${command.duration !== undefined ? Number(command.duration) : 0.15}"
+               title="${esc(t('commands.length.title'))}">
         <div class="row-tools">
           <button class="icon-btn test" data-act="test" data-index="${index}"
                   title="${esc(t('button.test'))}">&#9654;</button>
@@ -214,6 +224,19 @@ function renderCommands() {
         <span class="tag">${esc(t('commands.viewersSee'))}</span>
         <input data-act="info" data-index="${index}" value="${esc(command.info || '')}"
                placeholder="${esc(t('commands.viewersSee.placeholder'))}" spellcheck="false">
+        <div class="chips">
+          ${chip(index, 'hidden', !command.hidden,
+    command.hidden ? ICONS.eyeShut : ICONS.eyeOpen,
+    t(command.hidden ? 'commands.chip.hidden' : 'commands.chip.shown'),
+    t('commands.hidden.title'))}
+          ${chip(index, 'modOnly', Boolean(command.modOnly), ICONS.shield,
+    t('commands.chip.mods'), t('commands.modOnly.title'))}
+          ${chip(index, 'override', Boolean(command.override), ICONS.override,
+    t('commands.chip.override'), t('commands.override.title'))}
+          ${chip(index, 'allowHold', holdOn, ICONS.hold,
+    t('commands.chip.hold'), t('commands.hold.title'))}
+          ${holdCap}
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -241,6 +264,21 @@ $('cmdList').addEventListener('click', async (event) => {
   const index = Number(target.dataset.index);
   const command = profile.commands[index];
   if (!command) return;
+
+  // The four switches under each command are buttons rather than checkboxes,
+  // so they toggle here.
+  const TOGGLES = { hidden: 'hidden', modOnly: 'modOnly', override: 'override', allowHold: 'allowHold' };
+  const field = TOGGLES[target.dataset.act];
+  if (field) {
+    command[field] = !command[field];
+    if (field === 'allowHold' && command.allowHold && !(Number(command.maxHold) > 0)) {
+      command.maxHold = 3;
+    }
+    if (field === 'allowHold' && !command.allowHold) delete command.maxHold;
+    renderCommands();
+    queueProfileSave();
+    return;
+  }
 
   if (target.dataset.act === 'delete') {
     profile.commands.splice(index, 1);
@@ -335,17 +373,11 @@ $('cmdList').addEventListener('change', (event) => {
   }
 
   if (act === 'length') {
-    const value = Math.max(0, Number(target.value) || 0);
-    // A second or more is long enough to be worth holding, so let chat
-    // choose the duration itself up to that limit.
-    if (value >= 1) {
-      command.maxHold = value;
-      command.duration = Math.min(Number(command.duration) || 0.4, value);
-    } else {
-      command.duration = value;
-      delete command.maxHold;
-    }
-    renderCommands();
+    command.duration = Math.max(0, Number(target.value) || 0);
+  }
+
+  if (act === 'maxHold') {
+    command.maxHold = Math.max(0.5, Number(target.value) || 3);
   }
 
   if (act === 'info') {
@@ -354,8 +386,6 @@ $('cmdList').addEventListener('change', (event) => {
     else delete command.info;
   }
 
-  if (act === 'modOnly') command.modOnly = target.checked;
-
   queueProfileSave();
 });
 
@@ -363,7 +393,7 @@ $('addCmd').addEventListener('click', () => {
   let name = 'new';
   let n = 2;
   while (profile.commands.some((c) => c.id === name)) name = `new${n++}`;
-  profile.commands.push({ id: name, type: 'key', keys: ['space'], duration: 0.15 });
+  profile.commands.push({ id: name, type: 'key', keys: ['space'], duration: 0.15, allowHold: false });
   renderCommands();
   queueProfileSave();
 

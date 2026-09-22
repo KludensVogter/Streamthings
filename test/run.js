@@ -8,6 +8,7 @@ const suites = [
   './profiles.test.js',
   './chat.test.js',
   './poll.test.js',
+  './toggles.test.js',
   './i18n.test.js',
 ];
 

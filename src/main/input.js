@@ -10,6 +10,8 @@ const GetForegroundWindow = user32.func('void *GetForegroundWindow()');
 const GetWindowTextW = user32.func('int GetWindowTextW(void *hWnd, _Out_ uint16_t *lpString, int nMaxCount)');
 const GetWindowTextLengthW = user32.func('int GetWindowTextLengthW(void *hWnd)');
 const IsWindowVisible = user32.func('bool IsWindowVisible(void *hWnd)');
+const GetAsyncKeyState = user32.func('int16_t GetAsyncKeyState(int vKey)');
+const MapVirtualKeyW = user32.func('uint32_t MapVirtualKeyW(uint32_t uCode, uint32_t uMapType)');
 const EnumWindowsProc = koffi.proto('bool __stdcall EnumWindowsProc(void *hWnd, int64_t lParam)');
 const EnumWindows = user32.func('bool EnumWindows(EnumWindowsProc *lpEnumFunc, int64_t lParam)');
 
@@ -46,6 +48,10 @@ function mouseInput(dx, dy, flags) {
   buf.writeUInt32LE(flags, 20);
   return buf;
 }
+
+const MAPVK_VSC_TO_VK_EX = 3;
+const KEY_IS_DOWN = 0x8000;
+const MOUSE_VIRTUAL_KEYS = { left: 0x01, right: 0x02, middle: 0x04 };
 
 /** Keys currently held down, so a stuck key can always be released. */
 const held = new Set();
@@ -141,7 +147,55 @@ function listWindows() {
   return titles.filter((t) => !noise.some((n) => t.toLowerCase() === n.toLowerCase()));
 }
 
+/**
+ * The virtual-key code Windows reports for one of our scancodes.
+ *
+ * We send scancodes, but asking whether a key is currently down is a
+ * virtual-key question, so the two have to be bridged through the active
+ * keyboard layout.
+ */
+function virtualKeyFor(name) {
+  const scan = SCANCODES[name];
+  if (scan === undefined) return 0;
+  const code = EXTENDED.has(name) ? (0xe000 | scan) : scan;
+  return MapVirtualKeyW(code, MAPVK_VSC_TO_VK_EX);
+}
+
+function isKeyDown(name) {
+  const vk = virtualKeyFor(name);
+  return vk !== 0 && (GetAsyncKeyState(vk) & KEY_IS_DOWN) !== 0;
+}
+
+function isButtonDown(button) {
+  const vk = MOUSE_VIRTUAL_KEYS[button];
+  return vk !== undefined && (GetAsyncKeyState(vk) & KEY_IS_DOWN) !== 0;
+}
+
+/**
+ * Lets go of anything in `names` that is currently held, whoever is holding
+ * it. Windows does not distinguish a physical press from an injected one, so
+ * a key up sent here releases the streamer's own finger as far as the game is
+ * concerned. That is what lets a chat command win an argument with her.
+ */
+function releaseIfDown(names, buttons) {
+  const released = [];
+  for (const name of names || []) {
+    if (isKeyDown(name)) {
+      keyUp(name);
+      released.push(name);
+    }
+  }
+  for (const button of buttons || []) {
+    if (isButtonDown(button)) {
+      mouseUp(button);
+      released.push(button);
+    }
+  }
+  return released;
+}
+
 module.exports = {
   keyDown, keyUp, mouseDown, mouseUp, mouseMove,
   releaseAll, heldKeys, foregroundTitle, listWindows,
+  virtualKeyFor, isKeyDown, isButtonDown, releaseIfDown,
 };

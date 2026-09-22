@@ -33,7 +33,10 @@ interface — there is no file to edit.
   from chat playing the game: it runs whether or not they are in control, and it
   never swallows their messages. Its own browser source, invisible until a poll
   is running.
-- **Moderator-only commands.** Mark a command so only mods and you can fire it.
+- **Switches per command.** Hide one from the overlay while it still works,
+  restrict it to moderators, let chat hold the key by typing a number after it,
+  or let it override your own keys — releasing whatever you are holding so chat
+  wins the argument.
 - **Panic button.** <kbd>F8</kbd> anywhere pauses everything and releases every
   held key.
 - **Profiles.** One per game, with import and export for sharing.
@@ -102,9 +105,9 @@ npm start
 npm test
 ```
 
-199 tests cover the scancode table and `INPUT` struct layout, chat parsing for
+230 tests cover the scancode table and `INPUT` struct layout, chat parsing for
 both platforms, every engine mode, poll tallying and its independence from the
-engine, profile handling and translation coverage.
+engine, the per-command switches, profile handling and translation coverage.
 One test presses a real key through `SendInput` and reads it back with
 `GetAsyncKeyState`.
 

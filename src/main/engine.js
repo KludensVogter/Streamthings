@@ -40,6 +40,10 @@ class Engine extends EventEmitter {
     this.userCooldown = Math.max(0, Number(profile.userCooldown) || 0);
     this.voteSeconds = Math.max(2, Number(profile.voteSeconds) || 10);
     this.targetWindow = String(profile.targetWindow || '').trim().toLowerCase();
+    // Worked out once per profile so an overriding command does not have to
+    // rebuild the list every time it fires.
+    this.overrideKeys = this.commands.allKeys();
+    this.overrideButtons = this.commands.allButtons();
   }
 
   /** Swap settings without dropping the chat connection or the queue. */
@@ -147,7 +151,10 @@ class Engine extends EventEmitter {
     if (!this.windowIsRight()) return;
     if (this.inFlight >= MAX_CONCURRENT) return;
     this.inFlight += 1;
-    execute(command, seconds)
+    execute(command, seconds, {
+      overrideKeys: this.overrideKeys,
+      overrideButtons: this.overrideButtons,
+    })
       .catch(() => {})
       .finally(() => { this.inFlight -= 1; });
   }

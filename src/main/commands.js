@@ -4,6 +4,7 @@ const input = require('./input');
 const { SCANCODES, MOUSE_BUTTONS } = require('./scancodes');
 
 const MAX_DURATION = 30;
+const DEFAULT_MAX_HOLD = 3;
 
 /**
  * Commands are stored as an ordered array rather than an object keyed by the
@@ -22,7 +23,17 @@ function normaliseCommand(raw, index) {
   keys = keys.map((k) => String(k).trim().toLowerCase()).filter(Boolean);
 
   const duration = Number.isFinite(Number(raw.duration)) ? Number(raw.duration) : 0.15;
-  const maxHold = Number.isFinite(Number(raw.maxHold)) ? Number(raw.maxHold) : 0;
+  const rawMaxHold = Number(raw.maxHold);
+
+  // Profiles written before the hold switch existed simply had a maxHold,
+  // and that is exactly what the switch being on used to mean.
+  const allowHold = raw.allowHold !== undefined
+    ? Boolean(raw.allowHold)
+    : Number.isFinite(rawMaxHold) && rawMaxHold > 0;
+
+  let maxHold = Number.isFinite(rawMaxHold) ? rawMaxHold : 0;
+  if (allowHold && maxHold <= 0) maxHold = DEFAULT_MAX_HOLD;
+  if (!allowHold) maxHold = 0;
 
   return {
     id,
@@ -32,9 +43,14 @@ function normaliseCommand(raw, index) {
     button: raw.button || raw.mouse || 'left',
     move: Array.isArray(raw.move) ? [Number(raw.move[0]) || 0, Number(raw.move[1]) || 0] : [0, 0],
     duration: Math.max(0, Math.min(duration, MAX_DURATION)),
+    allowHold,
     maxHold: Math.max(0, Math.min(maxHold, MAX_DURATION)),
     info: String(raw.info || '').trim(),
     modOnly: Boolean(raw.modOnly),
+    // Still runs, just not listed on the overlay.
+    hidden: Boolean(raw.hidden),
+    // Lets go of whatever the streamer is holding before taking over.
+    override: Boolean(raw.override),
   };
 }
 
@@ -52,6 +68,7 @@ function validateCommand(command) {
   if (command.type === 'move' && command.move[0] === 0 && command.move[1] === 0) {
     problems.push('noMovement');
   }
+  if (command.allowHold && command.maxHold <= 0) problems.push('holdWithoutLimit');
   return problems;
 }
 
@@ -75,9 +92,27 @@ class CommandSet {
     return this.commands.find((c) => c.id === id) || null;
   }
 
+  /** Every key this profile can press, for the override to let go of. */
+  allKeys() {
+    const keys = new Set();
+    for (const command of this.commands) {
+      if (command.type === 'key') for (const key of command.keys) keys.add(key);
+    }
+    return [...keys];
+  }
+
+  allButtons() {
+    const buttons = new Set();
+    for (const command of this.commands) {
+      if (command.type === 'mouse') buttons.add(command.button);
+    }
+    return [...buttons];
+  }
+
   /**
    * Turns a chat line into a command plus an optional hold time.
-   * "forward" -> tap. "forward 2" -> hold for two seconds, capped by maxHold.
+   * "forward" -> tap. "forward 2" -> hold for two seconds, but only when
+   * that command has the hold switch on.
    */
   parse(text) {
     const trimmed = String(text || '').trim().toLowerCase();
@@ -90,7 +125,7 @@ class CommandSet {
     const command = this.lookup.get(parts[0]);
     if (!command) return null;
 
-    if (parts.length >= 2 && command.maxHold > 0) {
+    if (parts.length >= 2 && command.allowHold && command.maxHold > 0) {
       const seconds = Number(parts[1].replace(',', '.'));
       if (Number.isFinite(seconds) && seconds > 0) {
         return { command, seconds: Math.min(seconds, command.maxHold) };
@@ -114,25 +149,37 @@ class CommandSet {
     return found;
   }
 
-  /** What the overlay shows viewers. */
+  /** What the overlay shows viewers. Hidden commands are left out. */
   describe() {
-    return this.commands.map((c) => ({
-      id: c.id,
-      aliases: c.aliases,
-      info: c.info,
-      modOnly: c.modOnly,
-      holdable: c.maxHold > 0,
-    }));
+    return this.commands
+      .filter((command) => !command.hidden)
+      .map((command) => ({
+        id: command.id,
+        aliases: command.aliases,
+        info: command.info,
+        modOnly: command.modOnly,
+        holdable: command.allowHold && command.maxHold > 0,
+      }));
   }
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Runs a command as real keyboard or mouse input. */
-async function execute(command, seconds) {
+/**
+ * Runs a command as real keyboard or mouse input.
+ *
+ * `context.overrideKeys` and `context.overrideButtons` list everything the
+ * profile can press; an overriding command releases all of it first, so the
+ * streamer's own held keys lose the argument.
+ */
+async function execute(command, seconds, context = {}) {
   let duration = seconds === null || seconds === undefined ? command.duration : seconds;
-  if (command.maxHold > 0) duration = Math.min(duration, command.maxHold);
+  if (command.allowHold && command.maxHold > 0) duration = Math.min(duration, command.maxHold);
   duration = Math.max(0, Math.min(duration, MAX_DURATION));
+
+  if (command.override) {
+    input.releaseIfDown(context.overrideKeys || [], context.overrideButtons || []);
+  }
 
   if (command.type === 'move') {
     // Spread the movement over several small steps so games that sample the
@@ -159,4 +206,6 @@ async function execute(command, seconds) {
   for (const key of [...command.keys].reverse()) input.keyUp(key);
 }
 
-module.exports = { CommandSet, normaliseCommand, validateCommand, execute, MAX_DURATION };
+module.exports = {
+  CommandSet, normaliseCommand, validateCommand, execute, MAX_DURATION, DEFAULT_MAX_HOLD,
+};
