@@ -28,10 +28,10 @@ module.exports = async function run() {
   eq('exact name', set.parse('forward')?.command.id, 'forward');
   eq('alias', set.parse('w')?.command.id, 'forward');
   eq('case and spaces ignored', set.parse('  FORWARD  ')?.command.id, 'forward');
-  eq('hold syntax', set.parse('forward 2')?.seconds, 2);
-  eq('comma decimal', set.parse('forward 1,5')?.seconds, 1.5);
-  eq('hold capped at maxHold', set.parse('forward 99')?.seconds, 3);
-  eq('non-holdable ignores number', set.parse('jump 5')?.seconds, null);
+  eq('hold syntax', set.parse('forward 2')?.amount, 2);
+  eq('comma decimal', set.parse('forward 1,5')?.amount, 1.5);
+  eq('hold capped at maxHold', set.parse('forward 99')?.amount, 3);
+  eq('non-holdable ignores number', set.parse('jump 5')?.amount, null);
   eq('unknown text', set.parse('hello there'), null);
   eq('empty', set.parse(''), null);
   ok('numeric command keeps its place', set.commands[15].id === '1');

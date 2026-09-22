@@ -11,6 +11,7 @@ const suites = [
   './toggles.test.js',
   './override.test.js',
   './theme.test.js',
+  './repeat.test.js',
   './i18n.test.js',
 ];
 

@@ -72,7 +72,10 @@ function applyDictionary() {
 
 function exampleHold() {
   const holdable = (profile?.commands || []).find((c) => c.allowHold && Number(c.maxHold) > 0);
-  return holdable ? `${holdable.id} 2` : 'forward 2';
+  if (holdable) return `${holdable.id} 2`;
+  const repeating = (profile?.commands || []).find((c) => c.allowRepeat);
+  if (repeating) return `${repeating.id} 3`;
+  return 'forward 2';
 }
 
 /* ---------------- pages ---------------- */
@@ -131,6 +134,17 @@ const CODE_MAP = {
   Quote: "'", Backquote: '`', Backslash: '\\', Comma: ',', Period: '.', Slash: '/',
 };
 
+// Modifiers are pressed first and released last, so a combination behaves
+// the way a pair of hands would do it.
+const MODIFIER_KEYS = ['shift', 'rshift', 'ctrl', 'rctrl', 'alt', 'ralt'];
+
+function orderKeys(keys) {
+  return [
+    ...keys.filter((k) => MODIFIER_KEYS.includes(k)),
+    ...keys.filter((k) => !MODIFIER_KEYS.includes(k)),
+  ];
+}
+
 function codeToKey(code) {
   if (CODE_MAP[code]) return CODE_MAP[code];
   if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
@@ -154,6 +168,7 @@ const ICONS = {
   eyeShut: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.2C4.2 3.2 1.5 7.4 1.5 8s2.7 4.8 6.5 4.8S14.5 8.6 14.5 8 11.8 3.2 8 3.2z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.2 12.8 12.8 3.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
   shield: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 13 3.6v4.2c0 3.2-2.1 5.3-5 6.4-2.9-1.1-5-3.2-5-6.4V3.6z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>',
   override: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.2 1.6 3.4 9h3.3l-.9 5.4L12.6 7H9.3z" fill="currentColor"/></svg>',
+  repeat: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.4 6.6a4.8 4.8 0 0 1 8.2-1.9M12.6 9.4a4.8 4.8 0 0 1-8.2 1.9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M11.9 2.2v2.7H9.2M4.1 13.8v-2.7h2.7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   hold: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8.6" r="5.4" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 5.6v3.2l2.1 1.3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
 };
 
@@ -193,10 +208,20 @@ function renderCommands() {
     }
 
     const holdOn = Boolean(command.allowHold);
+    const repeatOn = Boolean(command.allowRepeat);
     const holdCap = holdOn
       ? `<input class="inp hold-cap" type="number" step="0.5" min="0.5" data-act="maxHold"
                 data-index="${index}" value="${Number(command.maxHold) || 3}"
                 title="${esc(t('commands.holdMax.title'))}">`
+      : '';
+    const repeatFields = repeatOn
+      ? `<input class="inp hold-cap" type="number" step="1" min="2" max="50" data-act="repeatCount"
+                data-index="${index}" value="${Number(command.repeatCount) || 5}"
+                title="${esc(t('commands.repeatCount.title'))}">
+         <input class="inp hold-cap" type="number" step="0.05" min="0.05" max="5"
+                data-act="repeatInterval" data-index="${index}"
+                value="${Number(command.repeatInterval) || 0.25}"
+                title="${esc(t('commands.repeatInterval.title'))}">`
       : '';
 
     return `<div class="cmd-row">
@@ -237,6 +262,9 @@ function renderCommands() {
           ${chip(index, 'allowHold', holdOn, ICONS.hold,
     t('commands.chip.hold'), t('commands.hold.title'))}
           ${holdCap}
+          ${chip(index, 'allowRepeat', repeatOn, ICONS.repeat,
+    t('commands.chip.repeat'), t('commands.repeat.title'))}
+          ${repeatFields}
         </div>
       </div>
     </div>`;
@@ -259,6 +287,15 @@ function renderProblems() {
   bar.classList.remove('hidden');
 }
 
+let capture = null;
+
+function cancelCapture() {
+  if (!capture) return;
+  const ending = capture;
+  capture = null;
+  ending.cleanup();
+}
+
 $('cmdList').addEventListener('click', async (event) => {
   const target = event.target.closest('[data-act]');
   if (!target) return;
@@ -268,14 +305,25 @@ $('cmdList').addEventListener('click', async (event) => {
 
   // The four switches under each command are buttons rather than checkboxes,
   // so they toggle here.
-  const TOGGLES = { hidden: 'hidden', modOnly: 'modOnly', override: 'override', allowHold: 'allowHold' };
-  const field = TOGGLES[target.dataset.act];
+  const TOGGLES = ['hidden', 'modOnly', 'override', 'allowHold', 'allowRepeat'];
+  const field = TOGGLES.includes(target.dataset.act) ? target.dataset.act : null;
   if (field) {
     command[field] = !command[field];
-    if (field === 'allowHold' && command.allowHold && !(Number(command.maxHold) > 0)) {
-      command.maxHold = 3;
+
+    // Holding and repeating answer the same question, so turning one on
+    // turns the other off rather than leaving both looking active.
+    if (field === 'allowHold' && command.allowHold) {
+      command.allowRepeat = false;
+      if (!(Number(command.maxHold) > 0)) command.maxHold = 3;
+    }
+    if (field === 'allowRepeat' && command.allowRepeat) {
+      command.allowHold = false;
+      delete command.maxHold;
+      if (!(Number(command.repeatCount) > 1)) command.repeatCount = 5;
+      if (!(Number(command.repeatInterval) > 0)) command.repeatInterval = 0.25;
     }
     if (field === 'allowHold' && !command.allowHold) delete command.maxHold;
+
     renderCommands();
     queueProfileSave();
     return;
@@ -295,32 +343,58 @@ $('cmdList').addEventListener('click', async (event) => {
   }
 
   if (target.dataset.act === 'capture') {
-    for (const cap of document.querySelectorAll('.keycap.listening')) {
-      cap.classList.remove('listening');
-      cap.textContent = cap.dataset.previous || t('commands.key.prompt');
-    }
+    cancelCapture();
     target.dataset.previous = target.textContent;
     target.classList.add('listening');
     target.textContent = t('commands.key.listening');
 
-    const onKeyDown = (keyEvent) => {
-      keyEvent.preventDefault();
-      window.removeEventListener('keydown', onKeyDown, true);
-      target.classList.remove('listening');
-      const key = codeToKey(keyEvent.code);
-      if (!key) {
+    // Records a whole chord, not just one key: everything pressed before the
+    // last finger comes off counts, so space+a becomes one command.
+    const chosen = [];
+    const stillDown = new Set();
+
+    const finish = (keep) => {
+      cancelCapture();
+      if (!keep || chosen.length === 0) {
         target.textContent = target.dataset.previous;
-        toast(t('commands.key.unusable'));
+        if (keep) toast(t('commands.key.unusable'));
         return;
       }
       command.type = 'key';
-      command.keys = [key];
+      command.keys = orderKeys(chosen);
       delete command.button;
       delete command.move;
-      target.textContent = key;
+      renderCommands();
       queueProfileSave();
     };
+
+    const onKeyDown = (keyEvent) => {
+      keyEvent.preventDefault();
+      stillDown.add(keyEvent.code);
+      const key = codeToKey(keyEvent.code);
+      if (key && !chosen.includes(key) && chosen.length < 4) chosen.push(key);
+      if (chosen.length) target.textContent = orderKeys(chosen).join(' + ');
+    };
+
+    const onKeyUp = (keyEvent) => {
+      keyEvent.preventDefault();
+      stillDown.delete(keyEvent.code);
+      if (stillDown.size === 0) finish(true);
+    };
+
+    // Clicking the box and then wandering off should not leave the app
+    // swallowing every key press for the rest of the session.
+    const giveUp = setTimeout(() => finish(false), 8000);
+    capture = {
+      cleanup: () => {
+        window.removeEventListener('keydown', onKeyDown, true);
+        window.removeEventListener('keyup', onKeyUp, true);
+        clearTimeout(giveUp);
+        target.classList.remove('listening');
+      },
+    };
     window.addEventListener('keydown', onKeyDown, true);
+    window.addEventListener('keyup', onKeyUp, true);
   }
 });
 
@@ -379,6 +453,16 @@ $('cmdList').addEventListener('change', (event) => {
 
   if (act === 'maxHold') {
     command.maxHold = Math.max(0.5, Number(target.value) || 3);
+  }
+
+  if (act === 'repeatCount') {
+    command.repeatCount = Math.max(2, Math.min(50, Math.round(Number(target.value) || 5)));
+    renderCommands();
+  }
+
+  if (act === 'repeatInterval') {
+    command.repeatInterval = Math.max(0.05, Math.min(5, Number(target.value) || 0.25));
+    renderCommands();
   }
 
   if (act === 'info') {

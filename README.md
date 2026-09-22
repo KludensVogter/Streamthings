@@ -34,9 +34,14 @@ interface — there is no file to edit.
   never swallows their messages. Its own browser source, invisible until a poll
   is running.
 - **Switches per command.** Hide one from the overlay while it still works,
-  restrict it to moderators, let chat hold the key by typing a number after it,
-  or let it override your own hands — releasing whatever you are holding and
-  ignoring your presses until the command finishes, so you cannot out-mash chat.
+  restrict it to moderators, or let it override your own hands — releasing
+  whatever you are holding and ignoring your presses until the command
+  finishes, so you cannot out-mash chat.
+- **Hold or repeat.** A command either holds its key down or taps it several
+  times at a set interval, never both, so the number chat types after it is
+  never ambiguous: seconds for one, presses for the other.
+- **Key combinations.** Hold two keys together while recording and both are
+  captured, so `jumpleft` really is space and A at once.
 - **Your own look.** Colours, opacity, width, rounding and text size for both
   overlays, with a live preview of the real pages.
 - **Panic button.** <kbd>F8</kbd> anywhere pauses everything and releases every
@@ -122,10 +127,11 @@ npm start
 npm test
 ```
 
-293 tests cover the scancode table and `INPUT` struct layout, chat parsing for
+327 tests cover the scancode table and `INPUT` struct layout, chat parsing for
 both platforms, every engine mode, poll tallying and its independence from the
-engine, the per-command switches, the override guards, overlay theming, profile
-handling and translation coverage.
+engine, the per-command switches, hold and repeat timing, key combinations,
+the override guards, overlay theming, profile handling and translation
+coverage.
 One test presses a real key through `SendInput` and reads it back with
 `GetAsyncKeyState`.
 

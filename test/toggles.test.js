@@ -46,17 +46,17 @@ module.exports = async function run() {
 
   suite('Hold switch');
   const holdOff = new CommandSet([{ id: 'jump', keys: ['space'], duration: 0.2, allowHold: false }]);
-  eq('a number is ignored when hold is off', holdOff.parse('jump 3').seconds, null);
+  eq('a number is ignored when hold is off', holdOff.parse('jump 3').amount, null);
   ok('the command still runs', holdOff.parse('jump 3').command.id === 'jump');
   ok('hold is not advertised to viewers', holdOff.describe()[0].holdable === false);
 
   const holdOn = new CommandSet([
     { id: 'forward', keys: ['w'], duration: 0.4, allowHold: true, maxHold: 3 },
   ]);
-  eq('a number is honoured when hold is on', holdOn.parse('forward 2').seconds, 2);
-  eq('and capped by its own limit', holdOn.parse('forward 99').seconds, 3);
+  eq('a number is honoured when hold is on', holdOn.parse('forward 2').amount, 2);
+  eq('and capped by its own limit', holdOn.parse('forward 99').amount, 3);
   ok('hold is advertised to viewers', holdOn.describe()[0].holdable === true);
-  eq('a plain command still taps', holdOn.parse('forward').seconds, null);
+  eq('a plain command still taps', holdOn.parse('forward').amount, null);
 
   suite('Press length and hold limit are separate numbers');
   const command = normaliseCommand({

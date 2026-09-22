@@ -4,6 +4,15 @@ const { EventEmitter } = require('events');
 const input = require('./input');
 const { CommandSet, execute } = require('./commands');
 
+/** How a run reads in the live feed: "forward 2s", "jump x5", "jump". */
+function describeRun(command, amount) {
+  if (command.allowRepeat && command.repeatCount > 1) {
+    return `${command.id} x${amount || command.repeatCount}`;
+  }
+  if (amount) return `${command.id} ${amount}s`;
+  return command.id;
+}
+
 const FEED_LENGTH = 14;
 const MAX_CONCURRENT = 40;
 
@@ -119,7 +128,7 @@ class Engine extends EventEmitter {
     if (!this.running || this.paused) return;
     const parsed = this.commands.parse(message.text);
     if (!parsed) return;
-    const { command, seconds } = parsed;
+    const { command, amount } = parsed;
 
     if (command.modOnly && !message.isMod) {
       this.note(message, command.id, 'blocked');
@@ -144,7 +153,7 @@ class Engine extends EventEmitter {
     }
 
     if (this.queue.length >= this.maxQueue) return;
-    this.queue.push({ message, command, seconds });
+    this.queue.push({ message, command, amount });
   }
 
   note(message, commandId, kind) {
@@ -160,11 +169,11 @@ class Engine extends EventEmitter {
     this.emitState();
   }
 
-  fire(command, seconds) {
+  fire(command, amount) {
     if (!this.windowIsRight()) return;
     if (this.inFlight >= MAX_CONCURRENT) return;
     this.inFlight += 1;
-    execute(command, seconds, {
+    execute(command, amount, {
       overrideKeys: this.overrideKeys,
       overrideButtons: this.overrideButtons,
     })
@@ -178,10 +187,8 @@ class Engine extends EventEmitter {
     this.timer = setTimeout(() => {
       if (!this.paused && this.queue.length > 0) {
         const next = this.queue.shift();
-        this.note(next.message, next.seconds
-          ? `${next.command.id} ${next.seconds}s`
-          : next.command.id, 'run');
-        this.fire(next.command, next.seconds);
+        this.note(next.message, describeRun(next.command, next.amount), 'run');
+        this.fire(next.command, next.amount);
       }
       this.drain();
     }, this.messageRate * 1000);

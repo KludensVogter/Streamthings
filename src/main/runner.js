@@ -285,7 +285,8 @@ class Runner extends EventEmitter {
   overlayState() {
     const dict = i18n.dictionary(this.language());
     const set = new CommandSet(this.profile.commands);
-    const holdable = set.commands.find((c) => c.maxHold > 0);
+    const holdable = set.commands.find((c) => c.allowHold && c.maxHold > 0);
+    const repeating = set.commands.find((c) => c.allowRepeat && c.repeatCount > 1);
 
     // Both overlay pages render their own text, so they get the strings
     // they need rather than the whole dictionary.
@@ -303,6 +304,7 @@ class Runner extends EventEmitter {
       voteSeconds: this.engine.voteSeconds,
       commands: set.describe(),
       holdExample: holdable ? `${holdable.id} 2` : '',
+      repeatExample: repeating ? `${repeating.id} ${repeating.repeatCount}` : '',
       strings,
     };
   }

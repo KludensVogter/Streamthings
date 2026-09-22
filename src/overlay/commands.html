@@ -160,7 +160,8 @@ function render(state) {
   const theme = state.theme || {};
   const commands = state.commands || [];
   const key = JSON.stringify([commands, state.mode, state.voteSeconds, strings,
-    state.paused, theme.showTitle, theme.showAliases, theme.showHoldHint]);
+    state.paused, theme.showTitle, theme.showAliases, theme.showHoldHint,
+    state.holdExample, state.repeatExample]);
   if (key === lastKey) return;
   lastKey = key;
 
@@ -188,13 +189,19 @@ function render(state) {
   }).join('');
 
   const foot = $('foot');
-  if (state.holdExample && theme.showHoldHint !== false) {
-    foot.classList.remove('hidden');
-    foot.innerHTML = esc(t('overlay.holdHint', { example: state.holdExample }))
-      .replace(esc(state.holdExample), '<b>' + esc(state.holdExample) + '</b>');
-  } else {
-    foot.classList.add('hidden');
+  const tips = [];
+  if (theme.showHoldHint !== false) {
+    if (state.holdExample) {
+      tips.push(esc(t('overlay.holdHint', { example: state.holdExample }))
+        .replace(esc(state.holdExample), '<b>' + esc(state.holdExample) + '</b>'));
+    }
+    if (state.repeatExample) {
+      tips.push(esc(t('overlay.repeatHint', { example: state.repeatExample }))
+        .replace(esc(state.repeatExample), '<b>' + esc(state.repeatExample) + '</b>'));
+    }
   }
+  foot.classList.toggle('hidden', tips.length === 0);
+  foot.innerHTML = tips.join('<br>');
 
   $('banner').textContent = t('overlay.paused');
   $('banner').classList.toggle('hidden', !state.paused);
