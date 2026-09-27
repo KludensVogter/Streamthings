@@ -218,15 +218,6 @@ function registerIpc() {
     return Boolean(url);
   });
 
-  handle('lights:save', (patch) => { runner.saveLights(patch); return runner.state(); });
-  handle('lights:retry', () => { runner.lights.retryObs(); return runner.state(); });
-  handle('lights:test', (entry) => runner.lights.test(entry));
-  handle('nanoleaf:pair', (host) => runner.pairNanoleaf(host));
-  handle('nanoleaf:cancelPair', () => { runner.lights.cancelPairing(); return runner.state(); });
-  handle('nanoleaf:discover', () => runner.lights.discover());
-  handle('nanoleaf:forget', () => { runner.forgetNanoleaf(); return runner.state(); });
-  handle('nanoleaf:refresh', async () => { await runner.lights.refreshNanoleaf(); return runner.state(); });
-
   handle('update:status', () => updateStatus);
   handle('update:check', () => {
     if (isDev) return { state: 'dev' };
