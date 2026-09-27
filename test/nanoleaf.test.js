@@ -2,7 +2,7 @@
 
 const { suite, ok, eq } = require('./helpers');
 const { freePort, fakeNanoleaf, silentServer } = require('./fakes');
-const { Nanoleaf, pair, parseAddress } = require('../src/main/lights/nanoleaf');
+const { Nanoleaf, pair, parseAddress, hexToHsv } = require('../src/main/lights/nanoleaf');
 
 const FAST = { timeoutMs: 300 };
 const FAST_PAIR = { intervalMs: 20, windowMs: 1000, timeoutMs: 200 };
@@ -23,6 +23,15 @@ module.exports = async function run() {
   eq('a pasted link works', parseAddress('http://10.0.0.9:16021/api/v1/'), { host: '10.0.0.9', port: 16021 });
   eq('blank is not an address', parseAddress(''), null);
   eq('spaces are not an address', parseAddress('my light'), null);
+
+  suite('Nanoleaf: colours');
+  eq('red', hexToHsv('#ff0000'), { hue: 0, sat: 100, value: 100 });
+  eq('green', hexToHsv('#00ff00').hue, 120);
+  eq('blue', hexToHsv('#0000ff').hue, 240);
+  eq('purple, just below the wrap-around', hexToHsv('#ff00cc').hue, 312);
+  eq('grey has no saturation', hexToHsv('#808080'), { hue: 0, sat: 0, value: 50 });
+  eq('black does not divide by zero', hexToHsv('#000000'), { hue: 0, sat: 0, value: 0 });
+  eq('nonsense is no colour', hexToHsv('red'), null);
 
   suite('Nanoleaf: pairing');
   const light = await fakeNanoleaf({ refusals: 3 });
@@ -72,6 +81,19 @@ module.exports = async function run() {
   await leaf.apply({ effect: 'Fireplace', brightness: 80, off: true });
   eq('off only turns it off', light.changes, ['/state {"on":{"value":false}}']);
   eq('and the light is off', light.state.on, false);
+
+  light.changes.length = 0;
+  await leaf.apply({ effect: '', color: '#0000ff', brightness: 30, off: false });
+  eq('a single colour is hue then saturation, then brightness', light.changes, [
+    '/state {"on":{"value":true}}',
+    '/state {"hue":{"value":240}}',
+    '/state {"sat":{"value":100}}',
+    '/state {"brightness":{"value":30}}',
+  ]);
+
+  light.changes.length = 0;
+  await leaf.apply({ color: '#800000', brightness: null });
+  eq('a dark colour with no brightness chosen comes out dark', light.changes[3], '/state {"brightness":{"value":50}}');
 
   light.changes.length = 0;
   await leaf.apply({ effect: 'Snowfall', brightness: null, off: false });

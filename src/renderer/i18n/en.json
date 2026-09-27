@@ -301,7 +301,7 @@
   "lights.forget.title": "Forget this light?",
   "lights.forget.body": "Your scene choices are kept. To use the light again you will need to pair it again.",
   "lights.scenes.title": "Scenes",
-  "lights.scenes.hint": "Choose what the light does when each scene goes on air. A scene left blank changes nothing. The ▶ button tries a row on the light straight away.",
+  "lights.scenes.hint": "Choose what the light does when each scene goes on air: one of its effects, or a single colour of your own. Drag the slider to set the brightness; click the number beside it to leave the brightness alone again. A scene left blank changes nothing, and ▶ tries a row on the light straight away.",
   "lights.scenes.empty": "Turn on OBS above and your scenes appear here.",
   "lights.scenes.waiting": "Waiting for OBS to list its scenes…",
   "lights.head.scene": "OBS scene",
@@ -309,7 +309,7 @@
   "lights.head.brightness": "Brightness",
   "lights.effect.keep": "Leave as it is",
   "lights.effect.missing": "{name} (not on the light)",
-  "lights.brightness.keep": "same",
+  "lights.brightness.keep": "unchanged",
   "lights.chip.off": "Off",
   "lights.chip.off.title": "Turn the light off when this scene goes on air",
   "lights.onAir": "on air",
@@ -327,5 +327,9 @@
   "lights.error.unpaired": "pair a Nanoleaf first",
   "lights.error.nothingToDo": "choose an effect, a brightness or Off first",
   "help.lights.title": "Lights that follow OBS",
-  "help.lights.body": "On the Lights page, Streamthings can listen to OBS and change your Nanoleaf light whenever you switch scene — a calm effect for Starting soon, off for Be right back, full brightness for the game. It is one setup for the whole stream, whichever profile is active. If OBS or the light is switched off, nothing else in the app is affected: the page just says so and keeps trying."
+  "help.lights.body": "On the Lights page, Streamthings can listen to OBS and change your Nanoleaf light whenever you switch scene — a calm effect for Starting soon, your own colour for the game, off for Be right back. It is one setup for the whole stream, whichever profile is active. If OBS or the light is switched off, nothing else in the app is affected: the page just says so and keeps trying.",
+  "lights.effect.colour": "One colour…",
+  "lights.colour.title": "Pick the colour",
+  "lights.brightness.fromColour": "as colour",
+  "lights.brightness.reset": "Click to leave the brightness unchanged"
 }

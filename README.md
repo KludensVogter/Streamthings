@@ -45,9 +45,10 @@ interface — there is no file to edit.
 - **Your own look.** Colours, opacity, width, rounding and text size for both
   overlays, with a live preview of the real pages.
 - **Lights that follow OBS.** Switch scene in OBS and your Nanoleaf changes
-  with it — an effect, a brightness, or off — set up per scene on the Lights
-  page. Pairing is a button press, and scenes you leave blank change nothing.
-  One setup for the whole stream, whichever profile is active.
+  with it — an effect, a colour of your own, a brightness, or off — set up per
+  scene on the Lights page. Pairing is a button press, and scenes you leave
+  blank change nothing. One setup for the whole stream, whichever profile is
+  active.
 - **Panic button.** <kbd>F8</kbd> anywhere pauses everything and releases every
   held key.
 - **Profiles.** One per game, with import and export for sharing.
@@ -151,7 +152,7 @@ npm start
 npm test
 ```
 
-448 tests cover the scancode table and `INPUT` struct layout, chat parsing for
+463 tests cover the scancode table and `INPUT` struct layout, chat parsing for
 both platforms, every engine mode, poll tallying and its independence from the
 engine, the per-command switches, hold and repeat timing, key combinations,
 the override guards, overlay theming, profile handling and translation

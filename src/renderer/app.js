@@ -987,6 +987,11 @@ let lightScenes = [];
 let lightsTimer = null;
 let lastSceneKey = '';
 
+// The effect list's own entry for "one plain colour". Nanoleaf marks its
+// built-in modes with asterisks too, so no real effect is called this.
+const SOLID = '*colour*';
+const DEFAULT_COLOUR = '#9146ff';
+
 function lightsConfig() {
   return state.settings.lights;
 }
@@ -1013,11 +1018,11 @@ function sceneEntry(name) {
 function updateScene(name, patch) {
   let entry = sceneEntry(name);
   if (!entry) {
-    entry = { scene: name, effect: '', brightness: null, off: false };
+    entry = { scene: name, effect: '', color: '', brightness: null, off: false };
     lightScenes.push(entry);
   }
   Object.assign(entry, patch);
-  lightScenes = lightScenes.filter((e) => e.off || e.effect || e.brightness !== null);
+  lightScenes = lightScenes.filter((e) => e.off || e.effect || e.color || e.brightness !== null);
   queueScenesSave();
 }
 
@@ -1109,18 +1114,37 @@ $('nanoleafForget').addEventListener('click', async () => {
 });
 
 $('sceneList').addEventListener('change', (event) => {
-  const target = event.target.closest('[data-light]');
+  const target = event.target.closest('[data-light="effect"]');
   if (!target) return;
   const name = target.closest('.scene-row').dataset.scene;
 
-  if (target.dataset.light === 'effect') updateScene(name, { effect: target.value });
+  // Picking a colour or leaving it shows or hides the colour box, so the
+  // row is drawn again; choosing between effects needs no redraw.
+  if (target.value === SOLID) {
+    const entry = sceneEntry(name);
+    updateScene(name, { effect: '', color: (entry && entry.color) || DEFAULT_COLOUR });
+    renderScenes(true);
+    return;
+  }
+  const hadColour = Boolean(sceneEntry(name)?.color);
+  updateScene(name, { effect: target.value, color: '' });
+  if (hadColour) renderScenes(true);
+});
+
+// Dragging the slider or the colour picker saves as it goes; the save
+// itself waits until she stops, so a drag is one write rather than fifty.
+$('sceneList').addEventListener('input', (event) => {
+  const target = event.target.closest('[data-light]');
+  if (!target) return;
+  const row = target.closest('.scene-row');
+  const name = row.dataset.scene;
+
+  if (target.dataset.light === 'color') updateScene(name, { color: target.value });
 
   if (target.dataset.light === 'brightness') {
-    const text = target.value.trim();
-    const value = text === '' ? null : Math.max(0, Math.min(100, Math.round(Number(text))));
-    const brightness = Number.isFinite(value) ? value : null;
-    target.value = brightness === null ? '' : brightness;
+    const brightness = Math.max(0, Math.min(100, Math.round(Number(target.value))));
     updateScene(name, { brightness });
+    showBrightness(row, sceneEntry(name));
   }
 });
 
@@ -1134,6 +1158,13 @@ $('sceneList').addEventListener('click', async (event) => {
     const entry = sceneEntry(name);
     updateScene(name, { off: !(entry && entry.off) });
     renderScenes(true);
+    return;
+  }
+
+  // The label beside the slider doubles as its "leave it alone" button.
+  if (act === 'brightnessReset') {
+    updateScene(name, { brightness: null });
+    showBrightness(target.closest('.scene-row'), sceneEntry(name));
     return;
   }
 
@@ -1159,7 +1190,11 @@ $('sceneList').addEventListener('click', async (event) => {
 function effectOptions(entry) {
   const effects = state.lights.nanoleaf.effects;
   const chosen = entry ? entry.effect : '';
-  const options = [`<option value="">${esc(t('lights.effect.keep'))}</option>`];
+  const solid = Boolean(entry && entry.color);
+  const options = [
+    `<option value=""${!chosen && !solid ? ' selected' : ''}>${esc(t('lights.effect.keep'))}</option>`,
+    `<option value="${SOLID}"${solid ? ' selected' : ''}>${esc(t('lights.effect.colour'))}</option>`,
+  ];
   for (const name of effects) {
     options.push(`<option value="${esc(name)}"${name === chosen ? ' selected' : ''}>${esc(name)}</option>`);
   }
@@ -1170,6 +1205,23 @@ function effectOptions(entry) {
     options.push(`<option value="${esc(chosen)}" selected>${esc(label)}</option>`);
   }
   return options.join('');
+}
+
+/**
+ * The slider has no empty position, so "unchanged" is shown by dimming it
+ * and saying so in the label. With a colour and no brightness of its own,
+ * the colour's own lightness is used, and the label says that instead.
+ */
+function showBrightness(row, entry) {
+  const slider = row.querySelector('[data-light="brightness"]');
+  const label = row.querySelector('[data-light="brightnessReset"]');
+  const set = Boolean(entry && entry.brightness !== null);
+  slider.classList.toggle('unset', !set);
+  if (set) slider.value = entry.brightness;
+  label.textContent = set ? `${entry.brightness}%`
+    : t(entry && entry.color ? 'lights.brightness.fromColour' : 'lights.brightness.keep');
+  label.title = set ? t('lights.brightness.reset') : '';
+  label.classList.toggle('set', set);
 }
 
 /**
@@ -1196,18 +1248,23 @@ function renderScenes(force) {
         const entry = sceneEntry(name);
         const off = Boolean(entry && entry.off);
         const missing = obs.status === 'connected' && !obs.scenes.includes(name);
-        const brightness = entry && entry.brightness !== null ? entry.brightness : '';
+        const brightness = entry && entry.brightness !== null ? entry.brightness : 100;
+        const colour = entry && entry.color;
         return `<div class="scene-row${missing ? ' missing' : ''}" data-scene="${esc(name)}">
           <div class="scene-name">
             <span title="${esc(name)}">${esc(name)}</span>
             <span class="badge air">${esc(t('lights.onAir'))}</span>
             ${missing ? `<span class="badge">${esc(t('lights.missing'))}</span>` : ''}
           </div>
-          <select data-light="effect"${off ? ' disabled' : ''}>${effectOptions(entry)}</select>
-          <div class="pct">
-            <input class="inp" type="number" min="0" max="100" step="1" data-light="brightness"
-                   value="${brightness}" placeholder="${esc(t('lights.brightness.keep'))}"${off ? ' disabled' : ''}>
-            <span>%</span>
+          <div class="effect-cell">
+            <select data-light="effect"${off ? ' disabled' : ''}>${effectOptions(entry)}</select>
+            ${colour ? `<input type="color" class="colour-pick" data-light="color" value="${esc(colour)}"
+                              title="${esc(t('lights.colour.title'))}"${off ? ' disabled' : ''}>` : ''}
+          </div>
+          <div class="level">
+            <input type="range" min="0" max="100" step="1" data-light="brightness"
+                   value="${brightness}"${off ? ' disabled' : ''}>
+            <button class="level-val" data-light="brightnessReset"${off ? ' disabled' : ''}></button>
           </div>
           <button class="chip-toggle${off ? ' on' : ''}" data-light="off"
                   title="${esc(t('lights.chip.off.title'))}">${ICONS.power}<span>${esc(t('lights.chip.off'))}</span></button>
@@ -1217,6 +1274,7 @@ function renderScenes(force) {
           </div>
         </div>`;
       }).join('');
+      for (const row of list.querySelectorAll('.scene-row')) showBrightness(row, sceneEntry(row.dataset.scene));
     }
   }
 

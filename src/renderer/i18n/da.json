@@ -301,7 +301,7 @@
   "lights.forget.title": "Glem dette lys?",
   "lights.forget.body": "Dine valg for scenerne bliver gemt. For at bruge lyset igen skal du parre det igen.",
   "lights.scenes.title": "Scener",
-  "lights.scenes.hint": "Vælg hvad lyset gør når hver scene går i luften. En scene uden valg ændrer ingenting. Knappen ▶ prøver en række på lyset med det samme.",
+  "lights.scenes.hint": "Vælg hvad lyset gør når hver scene går i luften: en af dets effekter, eller én farve du selv vælger. Træk i skyderen for at sætte lysstyrken; klik på tallet ved siden af for at lade lysstyrken være igen. En scene uden valg ændrer ingenting, og ▶ prøver en række på lyset med det samme.",
   "lights.scenes.empty": "Slå OBS til ovenfor, så dukker dine scener op her.",
   "lights.scenes.waiting": "Venter på at OBS sender sine scener…",
   "lights.head.scene": "OBS-scene",
@@ -327,5 +327,9 @@
   "lights.error.unpaired": "par et Nanoleaf først",
   "lights.error.nothingToDo": "vælg en effekt, en lysstyrke eller Sluk først",
   "help.lights.title": "Lys der følger OBS",
-  "help.lights.body": "På siden Lys kan Streamthings lytte til OBS og skifte dit Nanoleaf-lys hver gang du skifter scene — en rolig effekt til Starter snart, slukket til Er straks tilbage, fuld styrke til spillet. Det er én opsætning for hele streamen, uanset hvilken profil der er valgt. Er OBS eller lyset slukket, påvirker det intet andet i appen: siden siger det bare og bliver ved med at prøve."
+  "help.lights.body": "På siden Lys kan Streamthings lytte til OBS og skifte dit Nanoleaf-lys hver gang du skifter scene — en rolig effekt til Starter snart, din egen farve til spillet, slukket til Er straks tilbage. Det er én opsætning for hele streamen, uanset hvilken profil der er valgt. Er OBS eller lyset slukket, påvirker det intet andet i appen: siden siger det bare og bliver ved med at prøve.",
+  "lights.effect.colour": "Én farve…",
+  "lights.colour.title": "Vælg farven",
+  "lights.brightness.fromColour": "som farven",
+  "lights.brightness.reset": "Klik for at lade lysstyrken være uændret"
 }

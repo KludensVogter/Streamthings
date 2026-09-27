@@ -205,6 +205,8 @@ async function fakeNanoleaf({
         light.changes.push(`${path} ${JSON.stringify(body)}`);
         if (body.on) light.state.on = body.on.value;
         if (body.brightness) light.state.brightness = body.brightness.value;
+        if (body.hue) light.state.hue = body.hue.value;
+        if (body.sat) light.state.sat = body.sat.value;
         if (body.select) light.state.effect = body.select;
         reply(204);
         return;

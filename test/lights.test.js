@@ -70,7 +70,12 @@ module.exports = async function run() {
   eq('a token that could escape the URL is dropped', cleaned.nanoleafToken, '');
   eq('scenes that ask for nothing are dropped', cleaned.scenes.map((s) => s.scene), ['Starting', 'BRB']);
   eq('brightness clamped to 100', cleaned.scenes[0].brightness, 100);
-  eq('off wins over everything else', cleaned.scenes[1], { scene: 'BRB', effect: '', brightness: null, off: true });
+  eq('off wins over everything else', cleaned.scenes[1],
+    { scene: 'BRB', effect: '', color: '', brightness: null, off: true });
+  eq('a colour on its own is enough', cleanScene({ scene: 'x', color: '#FF8800' }).color, '#ff8800');
+  eq('a colour replaces an effect', cleanScene({ scene: 'x', color: '#ff8800', effect: 'Fireplace' }).effect, '');
+  eq('a broken colour is dropped', cleanScene({ scene: 'x', color: 'orange', effect: 'Fireplace' }).color, '');
+  eq('off clears the colour', cleanScene({ scene: 'x', color: '#ff8800', off: true }).color, '');
   const pasted = cleanLights({ obsHost: 'ws://192.168.1.20:4456/', obsPort: 4455 });
   eq('a pasted ws:// address is split into host', pasted.obsHost, '192.168.1.20');
   eq('and port', pasted.obsPort, 4456);
@@ -79,7 +84,7 @@ module.exports = async function run() {
   eq('and no scenes', clean({}).lights.scenes, []);
 
   suite('Lights: scenes drive the light');
-  const obs = await fakeObs({ scenes: ['Starting', 'Game', 'BRB', 'Ending'], current: 'Game' });
+  const obs = await fakeObs({ scenes: ['Starting', 'Just chatting', 'Game', 'BRB', 'Ending'], current: 'Just chatting' });
   const light = await fakeNanoleaf();
   const lights = new Lights(OPTIONS);
   lights.configure({
@@ -92,13 +97,14 @@ module.exports = async function run() {
       { scene: 'Starting', effect: 'Northern Lights', brightness: 40 },
       { scene: 'BRB', off: true },
       { scene: 'Ending', brightness: 10 },
+      { scene: 'Game', color: '#00ff00', brightness: 70 },
     ],
   });
 
   ok('OBS connects', await until(() => lights.state().obs.status === 'connected'));
   ok('the light answers', await until(() => lights.state().nanoleaf.status === 'ok'));
   eq('its effects are listed', lights.state().nanoleaf.effects, ['Northern Lights', 'Fireplace', 'Snowfall']);
-  eq('OBS scenes are listed', lights.state().obs.scenes, ['Starting', 'Game', 'BRB', 'Ending']);
+  eq('OBS scenes are listed', lights.state().obs.scenes, ['Starting', 'Just chatting', 'Game', 'BRB', 'Ending']);
   await sleep(80);
   eq('a scene with nothing set leaves the light alone', light.changes, []);
 
@@ -119,6 +125,11 @@ module.exports = async function run() {
 
   light.changes.length = 0;
   obs.switchTo('Game');
+  ok('a scene with a single colour', await until(() => light.changes.length === 4));
+  eq('sets that colour', [light.state.hue, light.state.sat, light.state.brightness], [120, 100, 70]);
+
+  light.changes.length = 0;
+  obs.switchTo('Just chatting');
   await sleep(100);
   eq('an unset scene after that still changes nothing', light.changes, []);
 

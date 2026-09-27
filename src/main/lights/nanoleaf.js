@@ -5,6 +5,33 @@ const http = require('http');
 const DEFAULT_PORT = 16021;
 const TOKEN_PATTERN = /^[A-Za-z0-9]{1,64}$/;
 
+/**
+ * "#rrggbb" as Nanoleaf's hue (0–360) and saturation (0–100), plus how bright
+ * the colour itself is (0–100), for when no brightness was chosen separately.
+ */
+function hexToHsv(hex) {
+  const match = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!match) return null;
+  const n = parseInt(match[1], 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const spread = max - Math.min(r, g, b);
+
+  let hue = 0;
+  if (spread > 0) {
+    if (max === r) hue = ((g - b) / spread) % 6;
+    else if (max === g) hue = (b - r) / spread + 2;
+    else hue = (r - g) / spread + 4;
+  }
+  return {
+    hue: Math.round((hue * 60 + 360) % 360),
+    sat: Math.round(max === 0 ? 0 : (spread / max) * 100),
+    value: Math.round(max * 100),
+  };
+}
+
 /** An error with a short code the interface can translate. */
 function failure(code) {
   const err = new Error(code);
@@ -126,23 +153,42 @@ class Nanoleaf {
     return this.send('PUT', '/state', { on: { value: Boolean(on) } });
   }
 
+  setHue(value) {
+    return this.send('PUT', '/state', { hue: { value: Math.round(value) } });
+  }
+
+  setSaturation(value) {
+    return this.send('PUT', '/state', { sat: { value: Math.round(value) } });
+  }
+
   setBrightness(value) {
     return this.send('PUT', '/state', { brightness: { value: Math.round(value) } });
   }
 
   /**
-   * Carries out one scene's wish: { effect?, brightness?, off? }.
+   * Carries out one scene's wish: { effect?, color?, brightness?, off? }.
    * The steps run one at a time and the first failure stops the rest, so an
-   * unreachable light costs one timeout, not three.
+   * unreachable light costs one timeout, not four.
    */
-  async apply({ effect, brightness, off }) {
+  async apply({ effect, color, brightness, off }) {
     if (off) {
       await this.setOn(false);
       return;
     }
     await this.setOn(true);
-    if (effect) await this.selectEffect(effect);
-    if (brightness !== null && brightness !== undefined) await this.setBrightness(brightness);
+
+    const hsv = color ? hexToHsv(color) : null;
+    let level = brightness;
+    if (hsv) {
+      // Setting hue leaves any running effect for a plain colour.
+      await this.setHue(hsv.hue);
+      await this.setSaturation(hsv.sat);
+      // A dark red picked without a brightness should come out dark.
+      if (level === null || level === undefined) level = hsv.value;
+    } else if (effect) {
+      await this.selectEffect(effect);
+    }
+    if (level !== null && level !== undefined) await this.setBrightness(level);
   }
 }
 
@@ -198,4 +244,4 @@ function wait(ms, signal) {
   });
 }
 
-module.exports = { Nanoleaf, pair, parseAddress, DEFAULT_PORT, TOKEN_PATTERN };
+module.exports = { Nanoleaf, pair, parseAddress, hexToHsv, DEFAULT_PORT, TOKEN_PATTERN };

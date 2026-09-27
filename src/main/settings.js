@@ -30,7 +30,7 @@ const DEFAULT_LIGHTS = {
   nanoleafHost: '',
   nanoleafToken: '',
   nanoleafName: '',
-  // [{ scene, effect, brightness, off }]; a scene not listed is left alone.
+  // [{ scene, effect, color, brightness, off }]; a scene not listed is left alone.
   scenes: [],
 };
 
@@ -92,12 +92,15 @@ function cleanScene(raw) {
   if (!scene) return null;
 
   const off = raw.off === true;
-  const effect = off ? '' : String(raw.effect || '').trim().slice(0, 100);
+  // A single colour and an effect both decide what the panels show, so a
+  // colour replaces the effect rather than the two fighting over the light.
+  const color = off ? '' : hexColour(raw.color, '');
+  const effect = off || color ? '' : String(raw.effect || '').trim().slice(0, 100);
   const blank = raw.brightness === null || raw.brightness === undefined || raw.brightness === '';
   const brightness = off || blank ? null : Math.round(number(raw.brightness, 0, 100, NaN));
 
-  const entry = { scene, effect, brightness: Number.isNaN(brightness) ? null : brightness, off };
-  if (!entry.off && !entry.effect && entry.brightness === null) return null;
+  const entry = { scene, effect, color, brightness: Number.isNaN(brightness) ? null : brightness, off };
+  if (!entry.off && !entry.effect && !entry.color && entry.brightness === null) return null;
   return entry;
 }
 
