@@ -18,24 +18,6 @@ const DEFAULT_THEME = {
   showHoldHint: true,
 };
 
-/**
- * Lights that follow the OBS scene. Kept here rather than in a profile:
- * the lights belong to the stream, not to whichever game is being played.
- */
-const DEFAULT_LIGHTS = {
-  enabled: false,
-  obsHost: '127.0.0.1',
-  obsPort: 4455,
-  obsPassword: '',
-  nanoleafHost: '',
-  nanoleafToken: '',
-  nanoleafName: '',
-  // [{ scene, effect, color, brightness, off }]; a scene not listed is left alone.
-  scenes: [],
-};
-
-const MAX_SCENES = 200;
-
 const DEFAULTS = {
   language: 'auto',
   platform: 'twitch',
@@ -47,7 +29,6 @@ const DEFAULTS = {
   autoUpdate: true,
   windowBounds: null,
   overlayTheme: { ...DEFAULT_THEME },
-  lights: { ...DEFAULT_LIGHTS },
 };
 
 const PLATFORMS = ['twitch', 'youtube', 'both'];
@@ -82,64 +63,6 @@ function cleanTheme(raw) {
   };
 }
 
-/**
- * One scene's wish for the lights, or null when it asks for nothing, so a
- * scene with every field left blank is the same as no entry at all.
- */
-function cleanScene(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-  const scene = String(raw.scene || '').trim().slice(0, 200);
-  if (!scene) return null;
-
-  const off = raw.off === true;
-  // A single colour and an effect both decide what the panels show, so a
-  // colour replaces the effect rather than the two fighting over the light.
-  const color = off ? '' : hexColour(raw.color, '');
-  const effect = off || color ? '' : String(raw.effect || '').trim().slice(0, 100);
-  const blank = raw.brightness === null || raw.brightness === undefined || raw.brightness === '';
-  const brightness = off || blank ? null : Math.round(number(raw.brightness, 0, 100, NaN));
-
-  const entry = { scene, effect, color, brightness: Number.isNaN(brightness) ? null : brightness, off };
-  if (!entry.off && !entry.effect && !entry.color && entry.brightness === null) return null;
-  return entry;
-}
-
-function cleanLights(raw) {
-  const lights = { ...DEFAULT_LIGHTS, ...(raw && typeof raw === 'object' ? raw : {}) };
-
-  // What OBS shows under Show Connect Info is often pasted whole, as
-  // ws://host:port, so the scheme is dropped and a port moves to its field.
-  let obsHost = String(lights.obsHost || '').trim().replace(/^wss?:\/\//i, '').split('/')[0];
-  let port = Number(lights.obsPort);
-  const withPort = obsHost.match(/^([^:]+):(\d+)$/);
-  if (withPort) {
-    obsHost = withPort[1];
-    port = Number(withPort[2]);
-  }
-  const token = String(lights.nanoleafToken || '');
-
-  const scenes = [];
-  for (const entry of Array.isArray(lights.scenes) ? lights.scenes : []) {
-    const cleaned = cleanScene(entry);
-    if (!cleaned || scenes.some((s) => s.scene === cleaned.scene)) continue;
-    scenes.push(cleaned);
-    if (scenes.length >= MAX_SCENES) break;
-  }
-
-  return {
-    enabled: lights.enabled === true,
-    obsHost: obsHost.slice(0, 100) || DEFAULT_LIGHTS.obsHost,
-    obsPort: Number.isInteger(port) && port >= 1 && port <= 65535 ? port : DEFAULT_LIGHTS.obsPort,
-    obsPassword: String(lights.obsPassword || '').slice(0, 200),
-    nanoleafHost: String(lights.nanoleafHost || '').trim().slice(0, 100),
-    // The token becomes part of a URL path, so only the shape Nanoleaf
-    // actually hands out is accepted.
-    nanoleafToken: /^[A-Za-z0-9]{1,64}$/.test(token) ? token : '',
-    nanoleafName: String(lights.nanoleafName || '').trim().slice(0, 60),
-    scenes,
-  };
-}
-
 function clean(raw) {
   const settings = { ...DEFAULTS, ...(raw && typeof raw === 'object' ? raw : {}) };
   if (!PLATFORMS.includes(settings.platform)) settings.platform = 'twitch';
@@ -161,7 +84,6 @@ function clean(raw) {
   settings.activeProfileId = String(settings.activeProfileId || 'default').slice(0, 60);
   settings.language = String(settings.language || 'auto').slice(0, 10);
   settings.overlayTheme = cleanTheme(settings.overlayTheme);
-  settings.lights = cleanLights(settings.lights);
   return settings;
 }
 
@@ -204,6 +126,4 @@ class Settings {
   }
 }
 
-module.exports = {
-  Settings, DEFAULTS, PLATFORMS, DEFAULT_THEME, DEFAULT_LIGHTS, clean, cleanTheme, cleanLights, cleanScene,
-};
+module.exports = { Settings, DEFAULTS, PLATFORMS, DEFAULT_THEME, clean, cleanTheme };

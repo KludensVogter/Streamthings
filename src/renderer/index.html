@@ -27,7 +27,6 @@
     <button data-page="settings"><span class="ico">&#9881;</span><span data-i18n="nav.settings">Settings</span></button>
     <button data-page="look"><span class="ico">&#9673;</span><span data-i18n="nav.look">Overlay look</span></button>
     <button data-page="poll"><span class="ico">&#9678;</span><span data-i18n="nav.poll">Poll</span></button>
-    <button data-page="lights"><span class="ico">&#9728;</span><span data-i18n="nav.lights">Lights</span></button>
     <button data-page="live"><span class="ico">&#9889;</span><span data-i18n="nav.live">Live</span></button>
     <button data-page="help"><span class="ico">?</span><span data-i18n="nav.help">Help</span></button>
   </nav>
@@ -374,85 +373,6 @@
       </div>
     </section>
 
-    <!-- ===================== LIGHTS ===================== -->
-    <section class="page" id="page-lights">
-      <div class="card">
-        <h2 data-i18n="lights.obs.title">OBS</h2>
-        <p class="hint" data-i18n="lights.obs.hint"></p>
-        <div class="seg" id="lightsSeg">
-          <button data-lights="on" data-i18n="lights.on">On</button>
-          <button data-lights="off" data-i18n="lights.off">Off</button>
-        </div>
-        <div class="obs-fields">
-          <div class="field">
-            <label data-i18n="lights.obs.host">Address</label>
-            <input class="inp" id="obsHost" spellcheck="false" autocomplete="off">
-          </div>
-          <div class="field">
-            <label data-i18n="lights.obs.port">Port</label>
-            <input class="inp" type="number" id="obsPort" min="1" max="65535">
-          </div>
-          <div class="field">
-            <label data-i18n="lights.obs.password">Password</label>
-            <input class="inp" type="password" id="obsPassword" autocomplete="off"
-                   data-i18n-placeholder="lights.obs.password.placeholder">
-          </div>
-        </div>
-        <div class="link-status">
-          <span class="pip" id="obsPip"></span>
-          <span class="text" id="obsStatus"></span>
-          <button class="btn ghost small hidden" id="obsRetry" data-i18n="lights.obs.retry">Try now</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2 data-i18n="lights.nanoleaf.title">Nanoleaf</h2>
-        <p class="hint" data-i18n="lights.nanoleaf.hint"></p>
-        <div class="field">
-          <label data-i18n="lights.nanoleaf.address">The light's address</label>
-          <div class="slider-row">
-            <input class="inp" id="nanoleafHost" spellcheck="false" autocomplete="off" placeholder="192.168.1.50">
-            <button class="btn ghost" id="nanoleafFind" data-i18n="lights.nanoleaf.find">Search</button>
-            <button class="btn go" id="nanoleafPair" data-i18n="lights.nanoleaf.pair">Pair</button>
-          </div>
-          <div class="found hidden" id="nanoleafFound"></div>
-        </div>
-        <div class="callout warn hidden" id="pairCallout">
-          <span class="em">&#9203;</span>
-          <div>
-            <b data-i18n="lights.pair.title"></b><br>
-            <span data-i18n="lights.pair.body"></span>
-            <div class="pair-row">
-              <span class="pair-left" id="pairLeft"></span>
-              <button class="btn ghost small" id="pairCancel" data-i18n="button.cancel">Cancel</button>
-            </div>
-          </div>
-        </div>
-        <div class="link-status">
-          <span class="pip" id="nanoleafPip"></span>
-          <span class="text" id="nanoleafStatus"></span>
-          <button class="btn ghost small hidden" id="nanoleafRefresh"
-                  data-i18n="lights.nanoleaf.refresh">Reload effects</button>
-          <button class="btn ghost small hidden" id="nanoleafForget"
-                  data-i18n="lights.nanoleaf.forget">Forget</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2 data-i18n="lights.scenes.title">Scenes</h2>
-        <p class="hint" data-i18n="lights.scenes.hint"></p>
-        <div class="scene-head">
-          <div data-i18n="lights.head.scene">OBS scene</div>
-          <div data-i18n="lights.head.effect">Effect</div>
-          <div data-i18n="lights.head.brightness">Brightness</div>
-          <div></div>
-          <div></div>
-        </div>
-        <div id="sceneList"></div>
-        <div class="sub" id="lightsLast"></div>
-      </div>
-    </section>
-
     <!-- ===================== LIVE ===================== -->
     <section class="page" id="page-live">
       <div class="live-grid">
@@ -511,10 +431,6 @@
       <div class="card">
         <h2 data-i18n="help.overlays.title"></h2>
         <p class="hint block" data-i18n="help.overlays.body"></p>
-      </div>
-      <div class="card">
-        <h2 data-i18n="help.lights.title"></h2>
-        <p class="hint block" data-i18n="help.lights.body"></p>
       </div>
       <div class="card">
         <h2 data-i18n="help.privacy.title"></h2>
