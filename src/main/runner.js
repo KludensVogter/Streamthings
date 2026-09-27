@@ -10,6 +10,7 @@ const { OverlayServer } = require('./overlay-server');
 const { Poll } = require('./poll');
 const { ProfileStore } = require('./profiles');
 const { Settings } = require('./settings');
+const { Lights } = require('./lights/lights');
 const i18n = require('../shared/i18n');
 
 /**
@@ -31,6 +32,7 @@ class Runner extends EventEmitter {
     this.engine = new Engine(this.profile);
     this.poll = new Poll();
     this.overlay = new OverlayServer();
+    this.lights = new Lights();
 
     this.connections = [];
     this.connected = new Map();
@@ -44,11 +46,14 @@ class Runner extends EventEmitter {
       this.releaseConnection();
       this.emit('update');
     });
+    this.lights.on('change', () => this.emit('update'));
   }
 
   // ---- lifecycle ----------------------------------------------------
   async begin() {
     await this.startOverlay();
+    // Connects in the background; the app does not wait for OBS or the light.
+    this.lights.configure(this.settings.get().lights);
   }
 
   async startOverlay() {
@@ -246,6 +251,36 @@ class Runner extends EventEmitter {
     return after;
   }
 
+  // ---- lights that follow the OBS scene --------------------------------
+  /**
+   * Merges a partial change into the light settings. The pairing token only
+   * ever comes from pairing itself, so a stale copy in the interface cannot
+   * wipe it by saving something unrelated.
+   */
+  saveLights(patch, fromPairing) {
+    const next = { ...(patch || {}) };
+    if (!fromPairing) {
+      delete next.nanoleafToken;
+      delete next.nanoleafName;
+    }
+    const after = this.settings.update({ lights: { ...this.settings.get().lights, ...next } });
+    this.lights.configure(after.lights);
+    this.emit('update');
+    return after.lights;
+  }
+
+  async pairNanoleaf(host) {
+    const result = await this.lights.pair(host);
+    if (result.ok) {
+      this.saveLights({ nanoleafHost: result.host, nanoleafToken: result.token, nanoleafName: result.name }, true);
+    }
+    return { result: { ok: result.ok, reason: result.reason, name: result.name }, state: this.state() };
+  }
+
+  forgetNanoleaf() {
+    this.saveLights({ nanoleafToken: '', nanoleafName: '' }, true);
+  }
+
   testCommand(id) {
     const set = new CommandSet(this.profile.commands);
     const command = set.byId(id);
@@ -278,6 +313,7 @@ class Runner extends EventEmitter {
       language: this.language(),
       problems: new CommandSet(this.profile.commands).problems(),
       poll: this.poll.state(),
+      lights: this.lights.state(),
     };
   }
 
@@ -313,6 +349,7 @@ class Runner extends EventEmitter {
     this.poll.close();
     this.stop();
     this.closeConnection();
+    this.lights.stop();
     await this.overlay.stop();
   }
 }
