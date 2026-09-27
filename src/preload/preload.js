@@ -36,6 +36,15 @@ contextBridge.exposeInMainWorld('api', {
   listWindows: () => ipcRenderer.invoke('windows:list'),
   openOverlay: () => ipcRenderer.invoke('overlay:open'),
 
+  saveLights: (patch) => ipcRenderer.invoke('lights:save', patch),
+  retryObs: () => ipcRenderer.invoke('lights:retry'),
+  testLights: (entry) => ipcRenderer.invoke('lights:test', entry),
+  pairNanoleaf: (host) => ipcRenderer.invoke('nanoleaf:pair', host),
+  cancelPairing: () => ipcRenderer.invoke('nanoleaf:cancelPair'),
+  discoverNanoleaf: () => ipcRenderer.invoke('nanoleaf:discover'),
+  forgetNanoleaf: () => ipcRenderer.invoke('nanoleaf:forget'),
+  refreshNanoleaf: () => ipcRenderer.invoke('nanoleaf:refresh'),
+
   getUpdateStatus: () => ipcRenderer.invoke('update:status'),
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
   installUpdate: () => ipcRenderer.invoke('update:install'),

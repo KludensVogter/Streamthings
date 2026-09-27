@@ -44,6 +44,10 @@ interface — there is no file to edit.
   captured, so `jumpleft` really is space and A at once.
 - **Your own look.** Colours, opacity, width, rounding and text size for both
   overlays, with a live preview of the real pages.
+- **Lights that follow OBS.** Switch scene in OBS and your Nanoleaf changes
+  with it — an effect, a brightness, or off — set up per scene on the Lights
+  page. Pairing is a button press, and scenes you leave blank change nothing.
+  One setup for the whole stream, whichever profile is active.
 - **Panic button.** <kbd>F8</kbd> anywhere pauses everything and releases every
   held key.
 - **Profiles.** One per game, with import and export for sharing.
@@ -94,11 +98,31 @@ while chat plays and vice versa.
 | `src/main/hooks.js` | Low-level keyboard and mouse hooks, used only by the override switch |
 | `src/main/profiles.js` | Profile storage, defaults, import and export |
 | `src/main/overlay-server.js` | The localhost server OBS points at, serving both overlay pages |
+| `src/main/lights/obs.js` | Listens to OBS's built-in obs-websocket v5 for the scene on air |
+| `src/main/lights/nanoleaf.js` | Nanoleaf's local Open API: pairing, effects, brightness and power |
+| `src/main/lights/mdns.js` | Finds Nanoleaf lights on the network, so the IP need not be typed |
+| `src/main/lights/lights.js` | Ties the two together: scene on air → what the light should do |
 | `src/renderer/` | The interface, with `i18n/*.json` holding every string |
 
 Twitch is read as an anonymous guest, so the app cannot post and never sees a
 password or a token. Nothing is sent anywhere except the requests needed to
-read chat.
+read chat, and — only if Lights is turned on — to OBS and a Nanoleaf on your
+own network.
+
+### About Lights
+
+OBS 28 and newer has a websocket server built in (Tools → WebSocket Server
+Settings). Streamthings connects to it, reads the scene list and listens for
+the scene on air; it never changes anything in OBS. The Nanoleaf is driven
+over its local Open API on port 16021 after a one-time pairing, where the
+power button is held for 5–7 seconds while the app waits for a token.
+
+Neither side is ever waited on by the rest of the app. Every request has a
+timeout of a few seconds, OBS is reconnected in the background, quick scene
+changes collapse into the last one, and a light that does not answer only
+shows up as a line of text on the Lights page. The OBS password and the
+Nanoleaf token are kept in `settings.json` in the app's data folder, next to
+the other settings.
 
 ### About the override switch
 
@@ -127,11 +151,13 @@ npm start
 npm test
 ```
 
-327 tests cover the scancode table and `INPUT` struct layout, chat parsing for
+448 tests cover the scancode table and `INPUT` struct layout, chat parsing for
 both platforms, every engine mode, poll tallying and its independence from the
 engine, the per-command switches, hold and repeat timing, key combinations,
 the override guards, overlay theming, profile handling and translation
-coverage.
+coverage. Lights is tested end to end against a fake obs-websocket server
+and a fake Nanoleaf, including a wrong password, OBS closing and coming
+back, a light that never answers, pairing and network search.
 One test presses a real key through `SendInput` and reads it back with
 `GetAsyncKeyState`.
 
